@@ -1,4 +1,5 @@
 # サウンド・ミキサー・パーティー
+https://chachaneko4649.github.io/SoundMaskGame/
 聴覚を頼りに音の正体（ポイント）を当てるパーティーゲームです。
 
 ## 遊び方
