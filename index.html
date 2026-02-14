@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Mixer Party (Ver.3)</title>
+    <title>Sound Mixer Party (Auto-Reset Ver.)</title>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; text-align: center; padding: 20px; }
         .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -36,33 +36,32 @@
         </div>
 
         <div id="host-controls" class="card host-area hidden">
-            <h3>🎨 あなたはホストです</h3>
-            <button class="btn" onclick="generateSounds()">音をランダム生成</button>
+            <h3>🎨 ホスト操作</h3>
+            <button class="btn" onclick="generateSounds()">音を生成</button>
             <div id="sound-mixers"></div>
             <hr>
-            <h4>ポイント配布 (回答した人に)</h4>
+            <h4>ポイント配布</h4>
             <div id="player-scoring"></div>
-            <br>
-            <button class="btn" style="background:#28a745; width:100%; padding:15px;" onclick="endTurn()">ターン終了 (次へ交代)</button>
+            <button class="btn" style="background:#28a745; width:100%; padding:15px; margin-top:10px;" onclick="endTurn()">ターン終了</button>
         </div>
 
         <div id="player-waiting" class="card hidden">
-            <p>ホストが音をミックスしています...<br>耳を澄ませて待ちましょう！</p>
+            <p>ホストが音を作成中...</p>
         </div>
 
         <div class="card">
             <h3>プレイヤー一覧</h3>
             <div id="rankings"></div>
             <hr>
-            <button class="btn btn-danger" style="font-size: 0.8em;" onclick="resetAll()">※ 全員のデータをリセット(解散)</button>
+            <button class="btn btn-danger" onclick="resetAll()">強制リセット</button>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // ここを自分の設定に書き換えてください
+        // FIXME: 自身のFirebase Configを必ず貼り付けてください
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -87,17 +86,30 @@
             myName = nameInput;
 
             const snap = await getDoc(gameRef);
-            if (!snap.exists()) {
-                await setDoc(gameRef, { players: [{name: myName, score: 0}], hostIndex: 0 });
+            let shouldInit = !snap.exists();
+
+            if (snap.exists()) {
+                const data = snap.data();
+                // 10分(600,000ミリ秒)以上経過しているかチェック
+                const lastUpdate = data.updatedAt ? data.updatedAt.toMillis() : 0;
+                const now = Date.now();
+                if (now - lastUpdate > 600000) {
+                    shouldInit = true; // 古いデータなのでリセット
+                }
+            }
+
+            if (shouldInit) {
+                await setDoc(gameRef, { 
+                    players: [{name: myName, score: 0}], 
+                    hostIndex: 0,
+                    updatedAt: serverTimestamp() 
+                });
             } else {
                 const data = snap.data();
                 const players = data.players || [];
-                if(players.find(p => p.name === myName)) {
-                    alert("その名前はすでに使われています");
-                    return;
-                }
+                if(players.find(p => p.name === myName)) return alert("その名前は使用中");
                 players.push({name: myName, score: 0});
-                await updateDoc(gameRef, { players });
+                await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
             }
             
             document.getElementById('setup-screen').classList.add('hidden');
@@ -107,61 +119,31 @@
 
         function startSync() {
             onSnapshot(gameRef, (docSnap) => {
-                if (!docSnap.exists()) {
-                    location.reload(); 
-                    return;
-                }
+                if (!docSnap.exists()) { location.reload(); return; }
                 updateUI(docSnap.data());
             });
-        }
-
-        // 音を完全に止める関数
-        function stopAllSounds() {
-            oscillators.forEach(o => { try { o.stop(); } catch(e) {} });
-            oscillators = [];
-            gainNodes = [];
-            const mixerDiv = document.getElementById('sound-mixers');
-            if(mixerDiv) mixerDiv.innerHTML = "";
         }
 
         function updateUI(data) {
             const players = data.players || [];
             if(players.length === 0) return;
-
-            let hostIdx = data.hostIndex;
-            if (hostIdx >= players.length) hostIdx = 0;
-            
-            const host = players[hostIdx];
+            const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
 
-            // 役割表示
             document.getElementById('current-role').innerText = isHost ? "役割: ホスト" : `ホスト: ${host.name}`;
-            
-            // 画面の切り替え
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
-            // ホストでなくなった瞬間に音を止める
-            if (!isHost) {
-                stopAllSounds();
-            }
+            if (!isHost) stopAllSounds();
 
-            const me = players.find(p => p.name === myName);
-            if(me) document.getElementById('my-score').innerText = `ポイント: ${me.score}`;
-
-            const rankDiv = document.getElementById('rankings');
-            rankDiv.innerHTML = players.map(p => `
-                <div class="player-item">
-                    <span>${p.name} ${p.name === host.name ? '👑' : ''}</span>
-                    <b>${p.score}pt</b>
-                </div>
+            document.getElementById('my-score').innerText = `ポイント: ${players.find(p=>p.name===myName)?.score || 0}`;
+            document.getElementById('rankings').innerHTML = players.map(p => `
+                <div class="player-item"><span>${p.name} ${p.name===host.name?'👑':''}</span><b>${p.score}pt</b></div>
             `).join('');
 
             if(isHost) {
-                const scoringDiv = document.getElementById('player-scoring');
-                scoringDiv.innerHTML = players.map(p => `
-                    <div style="margin:5px 0;">
-                        ${p.name}: 
+                document.getElementById('player-scoring').innerHTML = players.map(p => `
+                    <div style="margin:5px 0;">${p.name}: 
                         <button onclick="window.addPt('${p.name}', 1)">+1</button>
                         <button onclick="window.addPt('${p.name}', 2)">+2</button>
                         <button onclick="window.addPt('${p.name}', 3)">+3</button>
@@ -171,70 +153,53 @@
             }
         }
 
-        window.leaveGame = async () => {
-            if(!confirm("退出しますか？")) return;
-            const snap = await getDoc(gameRef);
-            const players = snap.data().players.filter(p => p.name !== myName);
-            await updateDoc(gameRef, { players });
-            location.reload();
-        };
-
-        window.resetAll = async () => {
-            if(!confirm("全員解散させますか？")) return;
-            await deleteDoc(gameRef);
-        };
-
-        window.generateSounds = () => {
-            if(!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            stopAllSounds();
-
-            const types = ['sine', 'square', 'sawtooth', 'triangle'];
-            const pts = [1, 2, 3, -2];
-
-            types.forEach((type, i) => {
-                const gainNode = audioContext.createGain();
-                const osc = audioContext.createOscillator();
-                osc.type = type;
-                osc.frequency.value = 200 + (i * 100);
-                osc.connect(gainNode).connect(audioContext.destination);
-                gainNode.gain.value = 0; 
-                osc.start();
-                oscillators.push(osc);
-                gainNodes.push(gainNode);
-
-                document.getElementById('sound-mixers').innerHTML += `
-                    <div class="sound-control">
-                        音 ${i+1} (${pts[i]}pt) <br>
-                        <input type="range" min="0" max="0.3" step="0.05" value="0" 
-                        oninput="window.changeVol(${i}, this.value)">
-                    </div>
-                `;
-            });
-        };
-
-        window.changeVol = (idx, vol) => {
-            if(gainNodes[idx]) gainNodes[idx].gain.value = vol;
-        };
-
         window.addPt = async (targetName, pt) => {
             const snap = await getDoc(gameRef);
             const players = snap.data().players.map(p => {
                 if(p.name === targetName) p.score += pt;
                 return p;
             });
-            await updateDoc(gameRef, { players });
+            await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
         };
 
+        window.leaveGame = async () => {
+            const snap = await getDoc(gameRef);
+            const players = snap.data().players.filter(p => p.name !== myName);
+            if(players.length === 0) {
+                await deleteDoc(gameRef);
+            } else {
+                await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
+            }
+            location.reload();
+        };
+
+        window.resetAll = async () => { if(confirm("全員消去しますか？")) await deleteDoc(gameRef); };
+
+        // ページを閉じた時に自動退出を試みる
+        window.addEventListener('beforeunload', () => {
+            if(myName) window.leaveGame();
+        });
+
+        /* --- 音響・ターン管理 (前回のロジックを維持) --- */
+        window.stopAllSounds = () => { oscillators.forEach(o => {try{o.stop()}catch(e){}}); oscillators = []; gainNodes = []; };
+        window.changeVol = (i, v) => { if(gainNodes[i]) gainNodes[i].gain.value = v; };
+        window.generateSounds = () => {
+            if(!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            window.stopAllSounds();
+            const types = ['sine', 'square', 'sawtooth', 'triangle'];
+            types.forEach((type, i) => {
+                const g = audioContext.createGain(); const o = audioContext.createOscillator();
+                o.type = type; o.frequency.value = 200 + (i*100);
+                o.connect(g).connect(audioContext.destination); g.gain.value = 0; o.start();
+                oscillators.push(o); gainNodes.push(g);
+                document.getElementById('sound-mixers').innerHTML += `<div class="sound-control">音${i+1}<br><input type="range" min="0" max="0.3" step="0.05" value="0" oninput="window.changeVol(${i}, this.value)"></div>`;
+            });
+        };
         window.endTurn = async () => {
             const snap = await getDoc(gameRef);
             const data = snap.data();
-            let nextHost = data.hostIndex + 1;
-            if(nextHost >= data.players.length) nextHost = 0;
-            
-            // 音を止める
-            stopAllSounds();
-            // Firebaseを更新（これにより全プレイヤーの画面が自動で切り替わる）
-            await updateDoc(gameRef, { hostIndex: nextHost });
+            await updateDoc(gameRef, { hostIndex: (data.hostIndex + 1) % data.players.length, updatedAt: serverTimestamp() });
+            window.stopAllSounds();
         };
     </script>
 </body>
