@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Mixer Party (Ver.2)</title>
+    <title>Sound Mixer Party (Ver.3)</title>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; text-align: center; padding: 20px; }
         .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -46,6 +46,10 @@
             <button class="btn" style="background:#28a745; width:100%; padding:15px;" onclick="endTurn()">ターン終了 (次へ交代)</button>
         </div>
 
+        <div id="player-waiting" class="card hidden">
+            <p>ホストが音をミックスしています...<br>耳を澄ませて待ちましょう！</p>
+        </div>
+
         <div class="card">
             <h3>プレイヤー一覧</h3>
             <div id="rankings"></div>
@@ -58,7 +62,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // FIXME: ここにあなたのFirebase設定を貼り付けてください
+        // ここを自分の設定に書き換えてください
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -77,7 +81,6 @@
         let oscillators = [];
         let gainNodes = [];
 
-        // 参加処理
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
             if(!nameInput) return alert("名前を入力してください");
@@ -89,7 +92,6 @@
             } else {
                 const data = snap.data();
                 const players = data.players || [];
-                // 同じ名前がいないかチェック
                 if(players.find(p => p.name === myName)) {
                     alert("その名前はすでに使われています");
                     return;
@@ -103,31 +105,46 @@
             startSync();
         };
 
-        // リアルタイム同期
         function startSync() {
             onSnapshot(gameRef, (docSnap) => {
                 if (!docSnap.exists()) {
-                    // データが消された（リセットされた）らトップに戻る
-                    location.reload();
+                    location.reload(); 
                     return;
                 }
                 updateUI(docSnap.data());
             });
         }
 
+        // 音を完全に止める関数
+        function stopAllSounds() {
+            oscillators.forEach(o => { try { o.stop(); } catch(e) {} });
+            oscillators = [];
+            gainNodes = [];
+            const mixerDiv = document.getElementById('sound-mixers');
+            if(mixerDiv) mixerDiv.innerHTML = "";
+        }
+
         function updateUI(data) {
             const players = data.players || [];
             if(players.length === 0) return;
 
-            // ホスト判定（プレイヤー人数が減った時のエラー防止）
             let hostIdx = data.hostIndex;
             if (hostIdx >= players.length) hostIdx = 0;
             
             const host = players[hostIdx];
             const isHost = (host && host.name === myName);
 
+            // 役割表示
             document.getElementById('current-role').innerText = isHost ? "役割: ホスト" : `ホスト: ${host.name}`;
+            
+            // 画面の切り替え
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
+            document.getElementById('player-waiting').classList.toggle('hidden', isHost);
+
+            // ホストでなくなった瞬間に音を止める
+            if (!isHost) {
+                stopAllSounds();
+            }
 
             const me = players.find(p => p.name === myName);
             if(me) document.getElementById('my-score').innerText = `ポイント: ${me.score}`;
@@ -135,7 +152,7 @@
             const rankDiv = document.getElementById('rankings');
             rankDiv.innerHTML = players.map(p => `
                 <div class="player-item">
-                    <span>${p.name}</span>
+                    <span>${p.name} ${p.name === host.name ? '👑' : ''}</span>
                     <b>${p.score}pt</b>
                 </div>
             `).join('');
@@ -143,40 +160,33 @@
             if(isHost) {
                 const scoringDiv = document.getElementById('player-scoring');
                 scoringDiv.innerHTML = players.map(p => `
-                    <div style="margin:10px 0; border:1px dashed #ccc; padding:5px;">
-                        <b>${p.name}</b> へ: 
-                        <button onclick="addPt('${p.name}', 1)">+1</button>
-                        <button onclick="addPt('${p.name}', 2)">+2</button>
-                        <button onclick="addPt('${p.name}', 3)">+3</button>
-                        <button onclick="addPt('${p.name}', -2)">-2</button>
+                    <div style="margin:5px 0;">
+                        ${p.name}: 
+                        <button onclick="window.addPt('${p.name}', 1)">+1</button>
+                        <button onclick="window.addPt('${p.name}', 2)">+2</button>
+                        <button onclick="window.addPt('${p.name}', 3)">+3</button>
+                        <button onclick="window.addPt('${p.name}', -2)">-2</button>
                     </div>
                 `).join('');
             }
         }
 
-        // 退出ボタン（自分だけ消える）
         window.leaveGame = async () => {
-            if(!confirm("ゲームを抜けますか？")) return;
+            if(!confirm("退出しますか？")) return;
             const snap = await getDoc(gameRef);
             const players = snap.data().players.filter(p => p.name !== myName);
             await updateDoc(gameRef, { players });
             location.reload();
         };
 
-        // 全員リセットボタン（データを完全に消去）
         window.resetAll = async () => {
-            if(!confirm("全員を退場させて、ゲームを最初からリセットしますか？")) return;
+            if(!confirm("全員解散させますか？")) return;
             await deleteDoc(gameRef);
         };
 
-        // 音の生成
         window.generateSounds = () => {
             if(!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const mixerDiv = document.getElementById('sound-mixers');
-            mixerDiv.innerHTML = "";
-            oscillators.forEach(o => o.stop());
-            oscillators = [];
-            gainNodes = [];
+            stopAllSounds();
 
             const types = ['sine', 'square', 'sawtooth', 'triangle'];
             const pts = [1, 2, 3, -2];
@@ -189,15 +199,14 @@
                 osc.connect(gainNode).connect(audioContext.destination);
                 gainNode.gain.value = 0; 
                 osc.start();
-                
                 oscillators.push(osc);
                 gainNodes.push(gainNode);
 
-                mixerDiv.innerHTML += `
+                document.getElementById('sound-mixers').innerHTML += `
                     <div class="sound-control">
-                        音 ${i+1} (${pts[i]}pt設定) <br>
-                        <input type="range" min="0" max="0.5" step="0.05" value="0" 
-                        oninput="changeVol(${i}, this.value)">
+                        音 ${i+1} (${pts[i]}pt) <br>
+                        <input type="range" min="0" max="0.3" step="0.05" value="0" 
+                        oninput="window.changeVol(${i}, this.value)">
                     </div>
                 `;
             });
@@ -222,12 +231,11 @@
             let nextHost = data.hostIndex + 1;
             if(nextHost >= data.players.length) nextHost = 0;
             
+            // 音を止める
+            stopAllSounds();
+            // Firebaseを更新（これにより全プレイヤーの画面が自動で切り替わる）
             await updateDoc(gameRef, { hostIndex: nextHost });
-            alert("ターン終了！次のホストに交代します。");
-            // 音を強制停止するためにリロード
-            location.reload();
         };
     </script>
 </body>
 </html>
-
