@@ -3,7 +3,7 @@
 スマホのブラウザで手軽に遊べる、聴覚を頼りにしたリアルタイム・パーティーゲームです。
 
 ## 🔗 ゲームをプレイする
-**[こちらをクリックしてゲーム開始]([https://chachaneko4649.github.io/SoundMaskGame/])**
+**[こちらをクリックしてゲーム開始](https://chachaneko4649.github.io/SoundMaskGame/)**
 
 
 ---
