@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Mixer Party (External List Ver.)</title>
+    <title>Sound Mixer Party (Complete Ver.)</title>
     <style>
         body {
             font-family: sans-serif;
@@ -31,8 +31,17 @@
             font-weight: bold;
         }
 
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .btn-danger {
             background: #ff4757;
+        }
+
+        .btn-success {
+            background: #28a745;
         }
 
         .btn-secondary {
@@ -71,10 +80,20 @@
         }
 
         .score-badge {
-            background: #eee;
+            background: #ff4757;
+            color: white;
             padding: 2px 8px;
             border-radius: 10px;
             font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        #playback-controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 10px;
+            border: 2px solid #2196f3;
         }
     </style>
 </head>
@@ -83,7 +102,8 @@
 
     <div id="setup-screen" class="card">
         <h2>サウンドパーティー</h2>
-        <input type="text" id="player-name" placeholder="名前を入力" style="padding:10px; width:70%;">
+        <p>名前を入力して参加してください</p>
+        <input type="text" id="player-name" placeholder="例: たろう" style="padding:10px; width:70%; font-size: 16px;">
         <br><br>
         <button class="btn" onclick="joinGame()">ゲームに参加</button>
     </div>
@@ -99,16 +119,28 @@
 
         <div id="host-controls" class="card host-area hidden">
             <h3>🎨 ホスト操作パネル</h3>
-            <button class="btn" onclick="generateSounds()">音源をランダム選出</button>
-            <div id="sound-mixers"></div>
+            <p style="font-size: 0.9em; color: #666;">①音を選び、②音量を調整してから、③再生してください</p>
+
+            <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
+
+            <div id="playback-area" class="hidden">
+                <div id="playback-controls">
+                    <p style="margin-bottom: 10px; font-weight: bold;">2. ミックス全体の操作</p>
+                    <button class="btn btn-success" onclick="playAll()">▶ ミックス再生開始</button>
+                    <button class="btn btn-danger" onclick="pauseAll()">⏸ 一時停止</button>
+                </div>
+                <div id="sound-mixers"></div>
+            </div>
+
             <hr>
             <h4>ポイント配布 (口頭で回答を確認)</h4>
             <div id="player-scoring"></div>
-            <button class="btn" style="background:#28a745; width:100%; padding:15px; margin-top:10px;"
-                onclick="endTurn()">ターンを終了して次へ</button>
+            <button class="btn btn-success" style="width:100%; padding:15px; margin-top:20px; font-size: 1.1em;"
+                onclick="endTurn()">ターンを終了して次のホストへ</button>
         </div>
 
         <div id="player-waiting" class="card hidden">
+            <div style="font-size: 3em; margin-bottom: 10px;">👂</div>
             <p>ホストが音をミックスしています...<br>耳を澄ませて待ちましょう！</p>
         </div>
 
@@ -116,17 +148,17 @@
             <h3>プレイヤー一覧</h3>
             <div id="rankings"></div>
             <hr>
-            <button class="btn btn-danger" style="font-size: 0.8em;" onclick="resetAll()">全員リセット(解散)</button>
+            <button class="btn btn-danger" style="font-size: 0.7em; opacity: 0.7;" onclick="resetAll()">※
+                データをリセット(解散)</button>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        // 外部ファイルからサウンドリストを読み込み
         import { soundList } from "./sounds.js";
 
-        // FIXME: 自身のFirebase Configを必ず貼り付けてください
+        // FIXME: ここを自分の設定に上書きしてください
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -142,8 +174,9 @@
 
         let myName = "";
         let audioElements = [];
+        let isSoundGenerated = false;
 
-        // 参加処理
+        // ゲーム参加
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
             if (!nameInput) return alert("名前を入力してください");
@@ -155,7 +188,7 @@
             if (snap.exists()) {
                 const data = snap.data();
                 const lastUpdate = data.updatedAt ? data.updatedAt.toMillis() : 0;
-                if (Date.now() - lastUpdate > 600000) shouldInit = true; // 10分以上放置でリセット
+                if (Date.now() - lastUpdate > 600000) shouldInit = true; // 10分放置でリセット
             }
 
             if (shouldInit) {
@@ -173,6 +206,7 @@
             startSync();
         };
 
+        // データのリアルタイム監視
         function startSync() {
             onSnapshot(gameRef, (docSnap) => {
                 if (!docSnap.exists()) { location.reload(); return; }
@@ -180,6 +214,7 @@
             });
         }
 
+        // 画面の更新
         function updateUI(data) {
             const players = data.players || [];
             if (players.length === 0) return;
@@ -190,6 +225,7 @@
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
+            // ホストでない場合は音を強制停止
             if (!isHost) stopAllSounds();
 
             document.getElementById('my-score').innerText = `ポイント: ${players.find(p => p.name === myName)?.score || 0}`;
@@ -209,62 +245,25 @@
             }
         }
 
-        /* --- 音響・サウンド管理 --- */
+        /* --- 音響管理ロジック --- */
         window.stopAllSounds = () => {
             audioElements.forEach(audio => { audio.pause(); audio.currentTime = 0; });
             audioElements = [];
             document.getElementById('sound-mixers').innerHTML = "";
+            document.getElementById('playback-area').classList.add('hidden');
+
+            // ボタンを復活させる
+            const genBtn = document.getElementById('gen-btn');
+            if (genBtn) {
+                genBtn.disabled = false;
+                genBtn.innerText = "1. 音源をランダム選出";
+            }
+            isSoundGenerated = false;
         };
 
         window.generateSounds = () => {
-            window.stopAllSounds();
+            if (isSoundGenerated) return; // 2度押し禁止
+
             const shuffled = [...soundList].sort(() => 0.5 - Math.random());
             const selected = shuffled.slice(0, 4);
-            const pts = [1, 2, 3, -2];
-
-            selected.forEach((sound, i) => {
-                const audio = new Audio(sound.file);
-                audio.loop = true;
-                audio.volume = 0;
-                audio.play().catch(e => console.log("再生制限回避:", e));
-                audioElements.push(audio);
-
-                document.getElementById('sound-mixers').innerHTML += `
-                    <div class="sound-control">
-                        <strong>音${i + 1}: ${sound.name}</strong> <span class="score-badge">${pts[i]}pt</span><br>
-                        <input type="range" min="0" max="1" step="0.1" value="0" 
-                        oninput="window.changeVol(${i}, this.value)">
-                    </div>
-                `;
-            });
-        };
-
-        window.changeVol = (idx, vol) => { if (audioElements[idx]) audioElements[idx].volume = vol; };
-
-        /* --- システム管理 --- */
-        window.addPt = async (targetName, pt) => {
-            const snap = await getDoc(gameRef);
-            const players = snap.data().players.map(p => { if (p.name === targetName) p.score += pt; return p; });
-            await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
-        };
-
-        window.endTurn = async () => {
-            const snap = await getDoc(gameRef);
-            const data = snap.data();
-            window.stopAllSounds();
-            await updateDoc(gameRef, { hostIndex: (data.hostIndex + 1) % data.players.length, updatedAt: serverTimestamp() });
-        };
-
-        window.leaveGame = async () => {
-            const snap = await getDoc(gameRef);
-            const players = snap.data().players.filter(p => p.name !== myName);
-            players.length === 0 ? await deleteDoc(gameRef) : await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
-            location.reload();
-        };
-
-        window.resetAll = async () => { if (confirm("解散しますか？")) await deleteDoc(gameRef); };
-        window.addEventListener('beforeunload', () => { if (myName) window.leaveGame(); });
-    </script>
-</body>
-
-</html>
+            const pts = [1,
