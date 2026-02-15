@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" href="data:,">
-    <title>Sound Mixer Party - Tap Select Ver.</title>
+    <title>Sound Mixer Party - Result Mode Ver.</title>
     <style>
         body {
             font-family: sans-serif;
@@ -73,7 +73,6 @@
             align-items: center;
         }
 
-        /* ポイントチップ管理 */
         .point-chips {
             display: flex;
             justify-content: center;
@@ -93,13 +92,11 @@
             font-size: 14px;
             box-shadow: 0 3px 0 #0056b3;
             cursor: pointer;
-            transition: transform 0.2s;
         }
 
         .chip.used {
             opacity: 0.2;
             transform: scale(0.8);
-            cursor: default;
         }
 
         .chip[data-pt="-2"] {
@@ -128,7 +125,6 @@
             margin-top: 5px;
         }
 
-        /* スロット（タップ領域） */
         .pt-slot {
             height: 50px;
             border: 2px dashed #aaa;
@@ -174,6 +170,48 @@
             font-weight: bold;
             color: white;
             text-shadow: 0 0 10px black;
+            line-height: 1.1;
+        }
+
+        .overlay-pt {
+            font-size: 8vw;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 20px;
+            border-radius: 30px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        /* 結果発表用 */
+        #result-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f0f2f5;
+            z-index: 5000;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .final-rank {
+            font-size: 1.5em;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            background: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .rank-1 {
+            background: linear-gradient(135deg, #fff9c4, #fffde7);
+            border: 2px solid #fbc02d;
+            transform: scale(1.05);
         }
     </style>
 </head>
@@ -182,19 +220,29 @@
 
     <div id="danger-overlay" style="background:rgba(255,0,0,0.7)">
         <div class="overlay-text">DANGER!</div>
+        <div class="overlay-pt">-2 pt</div>
     </div>
     <div id="success-overlay" style="background:rgba(40,167,69,0.9)">
         <div id="success-name" class="overlay-text">GOOD!</div>
+        <div id="success-pt" class="overlay-pt">+1 pt</div>
     </div>
     <div id="great-overlay" style="background:goldenrod">
         <div id="great-name" class="overlay-text">GREAT!!</div>
+        <div id="great-pt" class="overlay-pt">+3 pt</div>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <h1 style="color: #007bff;">🏆 最終ランキング 🏆</h1>
+        <div id="final-list"></div>
+        <br>
+        <button class="btn btn-danger" style="width: 100%; padding: 20px;" onclick="resetAll()">試合終了 (タイトルへ戻る)</button>
     </div>
 
     <div id="setup-screen" class="card">
         <h1>🔊 Sound Mixer Party</h1>
-        <input type="text" id="player-name" placeholder="あなたの名前" style="padding:10px; width:70%;">
+        <input type="text" id="player-name" placeholder="名前を入力" style="padding:12px; width:70%;">
         <br><br>
-        <button class="btn" onclick="joinGame()">ゲームに参加</button>
+        <button class="btn" onclick="joinGame()">参加する</button>
     </div>
 
     <div id="game-screen" class="hidden">
@@ -203,18 +251,18 @@
                 <span id="current-role">接続中...</span>
                 <a href="#" onclick="leaveGame()" style="color:#999;">退出</a>
             </div>
-            <h2 id="my-score" style="margin:5px 0;">0 pt</h2>
+            <h2 id="my-score">0 pt</h2>
         </div>
 
         <div id="host-controls" class="card host-area hidden">
+            <h3>🎨 ホストパネル</h3>
             <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
             <div id="playback-area" class="hidden">
-                <p style="font-size:12px; margin:10px 0 5px;">ポイントチップ（タップして選択）：</p>
                 <div class="point-chips">
                     <div class="chip" id="btn-pt-1" onclick="selectChip(1, this)">1pt</div>
                     <div class="chip" id="btn-pt-2" onclick="selectChip(2, this)">2pt</div>
                     <div class="chip" id="btn-pt-3" onclick="selectChip(3, this)">3pt</div>
-                    <div class="chip" id="btn-pt-m2" data-pt="-2" onclick="selectChip(-2, this)">-2pt</div>
+                    <div class="chip" id="btn-pt-m2" onclick="selectChip(-2, this)">-2pt</div>
                 </div>
                 <div style="margin:10px 0;">
                     <button class="btn btn-success" onclick="playAll()">▶ 再生</button>
@@ -223,16 +271,17 @@
                 <div id="sound-mixers"></div>
             </div>
             <hr>
+            <h4>ポイント配布</h4>
             <div id="player-scoring"></div>
-            <button class="btn btn-success" style="width:100%; margin-top:15px;" onclick="endTurn()">交代する</button>
+            <button class="btn btn-success" style="width:100%; margin-top:15px;" onclick="endTurn()">次のホストへ交代</button>
+            <button class="btn btn-danger" style="width:100%; margin-top:10px; background:#6c757d;"
+                onclick="window.finishGame()">🏁 試合終了・結果発表</button>
         </div>
 
         <div id="player-waiting" class="card hidden">ホストが準備中...👂</div>
 
         <div class="card">
             <div id="rankings"></div>
-            <button class="btn btn-danger" style="font-size:10px; margin-top:20px; opacity:0.5;"
-                onclick="resetAll()">部屋をリセット</button>
         </div>
     </div>
 
@@ -241,6 +290,7 @@
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { soundList } from "./sounds.js";
 
+        // FIXME: FirebaseConfigを上書き
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -267,7 +317,7 @@
             myName = nameInput;
             const snap = await getDoc(gameRef);
             if (!snap.exists()) {
-                await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp() });
+                await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp(), isFinished: false });
             } else {
                 const players = snap.data().players;
                 if (!players.find(p => p.name === myName)) {
@@ -280,79 +330,82 @@
             startSync();
         };
 
-        // --- ポイント選択ロジック ---
+        function startSync() {
+            onSnapshot(gameRef, (docSnap) => {
+                if (!docSnap.exists()) { location.reload(); return; }
+                const data = docSnap.data();
+                checkAwardEffect(data);
+                if (data.isFinished) showFinalResults(data.players);
+                updateUI(data);
+            });
+        }
+
+        window.finishGame = async () => {
+            if (confirm("試合を終了して最終結果を発表しますか？")) {
+                await updateDoc(gameRef, { isFinished: true, updatedAt: serverTimestamp() });
+            }
+        };
+
+        function showFinalResults(players) {
+            const sorted = [...players].sort((a, b) => b.score - a.score);
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-list').innerHTML = sorted.map((p, i) => `
+                <div class="final-rank ${i === 0 ? 'rank-1' : ''}">
+                    <span>${i + 1}位: ${p.name}</span>
+                    <b>${p.score} pt</b>
+                </div>
+            `).join('');
+        }
+
         window.selectChip = (pt, el) => {
             if (el.classList.contains('used')) return;
-            // 選択中のチップを解除
             document.querySelectorAll('.chip').forEach(c => c.style.border = "none");
             currentSelectedPt = pt;
             el.style.border = "3px solid #333";
         };
 
         window.setPointToSlot = (idx) => {
-            if (currentSelectedPt === null) return alert("先に上のポイントチップを選んでください");
-
-            // すでに他の音源に同じポイントが入っていたらリセット
+            if (currentSelectedPt === null) return alert("チップを選んでください");
             const oldIdx = soundPoints.indexOf(currentSelectedPt);
             if (oldIdx !== -1) {
                 soundPoints[oldIdx] = null;
                 document.getElementById(`slot-${oldIdx}`).innerText = "？ pt";
                 document.getElementById(`slot-${oldIdx}`).classList.remove('filled');
             }
-
-            // 新しくセット
             soundPoints[idx] = currentSelectedPt;
             const slot = document.getElementById(`slot-${idx}`);
             slot.innerText = currentSelectedPt + " pt";
             slot.classList.add('filled');
-
-            // チップの使用済み状態を更新
             updateChipStatus();
         };
 
         function updateChipStatus() {
             document.querySelectorAll('.chip').forEach(chip => {
-                const pt = parseInt(chip.id.replace('btn-pt-', '').replace('m2', '-2'));
-                if (soundPoints.includes(pt)) {
-                    chip.classList.add('used');
-                    chip.style.border = "none";
-                } else {
-                    chip.classList.remove('used');
-                }
+                const ptText = chip.innerText.replace('pt', '');
+                const pt = ptText === '-2' ? -2 : parseInt(ptText);
+                chip.classList.toggle('used', soundPoints.includes(pt));
+                if (soundPoints.includes(pt)) chip.style.border = "none";
             });
             currentSelectedPt = null;
-        }
-
-        function startSync() {
-            onSnapshot(gameRef, (docSnap) => {
-                if (!docSnap.exists()) { location.reload(); return; }
-                const data = docSnap.data();
-                checkAwardEffect(data);
-                updateUI(data);
-            });
         }
 
         function updateUI(data) {
             const players = data.players || [];
             const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
-
             document.getElementById('current-role').innerText = isHost ? "役割: ホスト 👑" : `ホスト: ${host.name}`;
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
-
             if (!isHost) stopAllSounds();
             document.getElementById('my-score').innerText = (players.find(p => p.name === myName)?.score || 0) + " pt";
-
             document.getElementById('rankings').innerHTML = [...players].sort((a, b) => b.score - a.score).map(p => `
                 <div class="player-item"><span>${p.name}</span><b>${p.score} pt</b></div>
             `).join('');
-
             if (isHost) {
                 document.getElementById('player-scoring').innerHTML = players.map(p => {
                     const isDone = distributedPlayers.has(p.name);
                     return `<div style="margin:5px 0; border-bottom:1px solid #eee; padding:5px 0;">
-                        <span style="display:inline-block; width:60px; font-weight:bold;">${p.name}</span>
+                        <span>${p.name}</span>
                         ${isDone ? '✅' : `
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 0)">音1</button>
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 1)">音2</button>
@@ -366,7 +419,7 @@
 
         window.distributePt = async (target, sIdx) => {
             const pt = soundPoints[sIdx];
-            if (pt === null) return alert("この音のポイントが決まっていません！");
+            if (pt === null) return alert("pt未設定！");
             await window.distributeManual(target, pt, window.currentSoundNames[sIdx]);
         };
 
@@ -381,8 +434,7 @@
         window.changeVolSimple = (idx, level, btn) => {
             const volumes = [0, 0.4, 1.0];
             if (audioElements[idx]) audioElements[idx].volume = volumes[level];
-            const group = btn.parentElement;
-            Array.from(group.children).forEach(b => b.classList.remove('active'));
+            Array.from(btn.parentElement.children).forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
         };
 
@@ -414,11 +466,7 @@
             document.getElementById('sound-mixers').innerHTML = "";
             document.getElementById('playback-area').classList.add('hidden');
             soundPoints = [null, null, null, null];
-            document.querySelectorAll('.chip').forEach(c => {
-                c.classList.remove('used');
-                c.style.border = "none";
-            });
-            currentSelectedPt = null;
+            document.querySelectorAll('.chip').forEach(c => { c.classList.remove('used'); c.style.border = "none"; });
         };
 
         function checkAwardEffect(data) {
@@ -428,9 +476,16 @@
                 return;
             }
             lastAwardId = award.id;
-            const id = award.pt < 0 ? 'danger-overlay' : (award.pt === 3 ? 'great-overlay' : 'success-overlay');
-            const sound = award.pt < 0 ? 'warn.mp3' : (award.pt === 3 ? 'great.mp3' : 'success.mp3');
-            if (id !== 'danger-overlay') document.getElementById(id.replace('-overlay', '-name')).innerText = award.soundName;
+            const isDanger = award.pt < 0;
+            const isGreat = award.pt === 3;
+            const id = isDanger ? 'danger-overlay' : (isGreat ? 'great-overlay' : 'success-overlay');
+            const sound = isDanger ? 'warn.mp3' : (isGreat ? 'great.mp3' : 'success.mp3');
+
+            if (!isDanger) {
+                const type = isGreat ? 'great' : 'success';
+                document.getElementById(`${type}-name`).innerText = award.soundName;
+                document.getElementById(`${type}-pt`).innerText = (award.pt > 0 ? '+' : '') + award.pt + " pt";
+            }
             const overlay = document.getElementById(id);
             overlay.style.display = 'flex';
             new Audio(`sounds/${sound}`).play().catch(e => console.log(e));
@@ -445,7 +500,7 @@
             const snap = await getDoc(gameRef);
             await updateDoc(gameRef, { hostIndex: (snap.data().hostIndex + 1) % snap.data().players.length, updatedAt: serverTimestamp(), lastAward: null });
         };
-        window.resetAll = async () => { if (confirm("リセット？")) await deleteDoc(gameRef); location.reload(); };
+        window.resetAll = async () => { if (confirm("データをリセットして終了しますか？")) { await deleteDoc(gameRef); location.reload(); } };
         window.leaveGame = async () => { location.reload(); };
     </script>
 </body>
