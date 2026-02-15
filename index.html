@@ -1,22 +1,84 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Mixer Party (Auto-Reset Ver.)</title>
+    <title>Sound Mixer Party (External List Ver.)</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; text-align: center; padding: 20px; }
-        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .btn-danger { background: #ff4757; }
-        .btn-secondary { background: #6c757d; margin-top: 10px; }
-        .host-area { border: 3px solid #ff4757; background: #fff5f5; }
-        .player-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #ddd; align-items: center; }
-        .sound-control { margin: 15px 0; padding: 10px; background: #eee; border-radius: 10px; }
-        input[type=range] { width: 80%; }
-        .hidden { display: none; }
+        body {
+            font-family: sans-serif;
+            background: #f0f2f5;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-danger {
+            background: #ff4757;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            margin-top: 10px;
+        }
+
+        .host-area {
+            border: 3px solid #ff4757;
+            background: #fff5f5;
+        }
+
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            align-items: center;
+        }
+
+        .sound-control {
+            margin: 15px 0;
+            padding: 15px;
+            background: #eee;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        input[type=range] {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .score-badge {
+            background: #eee;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+        }
     </style>
 </head>
+
 <body>
 
     <div id="setup-screen" class="card">
@@ -30,36 +92,39 @@
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 id="current-role" style="margin:0;">役割確認中...</h3>
-                <button class="btn btn-secondary" onclick="leaveGame()">退出する</button>
+                <button class="btn btn-secondary" onclick="leaveGame()">退出</button>
             </div>
             <h2 id="my-score">ポイント: 0</h2>
         </div>
 
         <div id="host-controls" class="card host-area hidden">
-            <h3>🎨 ホスト操作</h3>
-            <button class="btn" onclick="generateSounds()">音を生成</button>
+            <h3>🎨 ホスト操作パネル</h3>
+            <button class="btn" onclick="generateSounds()">音源をランダム選出</button>
             <div id="sound-mixers"></div>
             <hr>
-            <h4>ポイント配布</h4>
+            <h4>ポイント配布 (口頭で回答を確認)</h4>
             <div id="player-scoring"></div>
-            <button class="btn" style="background:#28a745; width:100%; padding:15px; margin-top:10px;" onclick="endTurn()">ターン終了</button>
+            <button class="btn" style="background:#28a745; width:100%; padding:15px; margin-top:10px;"
+                onclick="endTurn()">ターンを終了して次へ</button>
         </div>
 
         <div id="player-waiting" class="card hidden">
-            <p>ホストが音を作成中...</p>
+            <p>ホストが音をミックスしています...<br>耳を澄ませて待ちましょう！</p>
         </div>
 
         <div class="card">
             <h3>プレイヤー一覧</h3>
             <div id="rankings"></div>
             <hr>
-            <button class="btn btn-danger" onclick="resetAll()">強制リセット</button>
+            <button class="btn btn-danger" style="font-size: 0.8em;" onclick="resetAll()">全員リセット(解散)</button>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // 外部ファイルからサウンドリストを読み込み
+        import { soundList } from "./sounds.js";
 
         // FIXME: 自身のFirebase Configを必ず貼り付けてください
         const firebaseConfig = {
@@ -76,13 +141,12 @@
         const gameRef = doc(db, "games", "party-room-1");
 
         let myName = "";
-        let audioContext = null;
-        let oscillators = [];
-        let gainNodes = [];
+        let audioElements = [];
 
+        // 参加処理
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
-            if(!nameInput) return alert("名前を入力してください");
+            if (!nameInput) return alert("名前を入力してください");
             myName = nameInput;
 
             const snap = await getDoc(gameRef);
@@ -90,28 +154,20 @@
 
             if (snap.exists()) {
                 const data = snap.data();
-                // 10分(600,000ミリ秒)以上経過しているかチェック
                 const lastUpdate = data.updatedAt ? data.updatedAt.toMillis() : 0;
-                const now = Date.now();
-                if (now - lastUpdate > 600000) {
-                    shouldInit = true; // 古いデータなのでリセット
-                }
+                if (Date.now() - lastUpdate > 600000) shouldInit = true; // 10分以上放置でリセット
             }
 
             if (shouldInit) {
-                await setDoc(gameRef, { 
-                    players: [{name: myName, score: 0}], 
-                    hostIndex: 0,
-                    updatedAt: serverTimestamp() 
-                });
+                await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp() });
             } else {
                 const data = snap.data();
                 const players = data.players || [];
-                if(players.find(p => p.name === myName)) return alert("その名前は使用中");
-                players.push({name: myName, score: 0});
+                if (players.find(p => p.name === myName)) return alert("その名前は使用中");
+                players.push({ name: myName, score: 0 });
                 await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
             }
-            
+
             document.getElementById('setup-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
             startSync();
@@ -126,22 +182,22 @@
 
         function updateUI(data) {
             const players = data.players || [];
-            if(players.length === 0) return;
+            if (players.length === 0) return;
             const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
 
-            document.getElementById('current-role').innerText = isHost ? "役割: ホスト" : `ホスト: ${host.name}`;
+            document.getElementById('current-role').innerText = isHost ? "役割: あなたがホスト" : `ホスト: ${host.name}`;
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
             if (!isHost) stopAllSounds();
 
-            document.getElementById('my-score').innerText = `ポイント: ${players.find(p=>p.name===myName)?.score || 0}`;
+            document.getElementById('my-score').innerText = `ポイント: ${players.find(p => p.name === myName)?.score || 0}`;
             document.getElementById('rankings').innerHTML = players.map(p => `
-                <div class="player-item"><span>${p.name} ${p.name===host.name?'👑':''}</span><b>${p.score}pt</b></div>
+                <div class="player-item"><span>${p.name} ${p.name === host.name ? '👑' : ''}</span><b>${p.score}pt</b></div>
             `).join('');
 
-            if(isHost) {
+            if (isHost) {
                 document.getElementById('player-scoring').innerHTML = players.map(p => `
                     <div style="margin:5px 0;">${p.name}: 
                         <button onclick="window.addPt('${p.name}', 1)">+1</button>
@@ -153,54 +209,62 @@
             }
         }
 
+        /* --- 音響・サウンド管理 --- */
+        window.stopAllSounds = () => {
+            audioElements.forEach(audio => { audio.pause(); audio.currentTime = 0; });
+            audioElements = [];
+            document.getElementById('sound-mixers').innerHTML = "";
+        };
+
+        window.generateSounds = () => {
+            window.stopAllSounds();
+            const shuffled = [...soundList].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, 4);
+            const pts = [1, 2, 3, -2];
+
+            selected.forEach((sound, i) => {
+                const audio = new Audio(sound.file);
+                audio.loop = true;
+                audio.volume = 0;
+                audio.play().catch(e => console.log("再生制限回避:", e));
+                audioElements.push(audio);
+
+                document.getElementById('sound-mixers').innerHTML += `
+                    <div class="sound-control">
+                        <strong>音${i + 1}: ${sound.name}</strong> <span class="score-badge">${pts[i]}pt</span><br>
+                        <input type="range" min="0" max="1" step="0.1" value="0" 
+                        oninput="window.changeVol(${i}, this.value)">
+                    </div>
+                `;
+            });
+        };
+
+        window.changeVol = (idx, vol) => { if (audioElements[idx]) audioElements[idx].volume = vol; };
+
+        /* --- システム管理 --- */
         window.addPt = async (targetName, pt) => {
             const snap = await getDoc(gameRef);
-            const players = snap.data().players.map(p => {
-                if(p.name === targetName) p.score += pt;
-                return p;
-            });
+            const players = snap.data().players.map(p => { if (p.name === targetName) p.score += pt; return p; });
             await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
+        };
+
+        window.endTurn = async () => {
+            const snap = await getDoc(gameRef);
+            const data = snap.data();
+            window.stopAllSounds();
+            await updateDoc(gameRef, { hostIndex: (data.hostIndex + 1) % data.players.length, updatedAt: serverTimestamp() });
         };
 
         window.leaveGame = async () => {
             const snap = await getDoc(gameRef);
             const players = snap.data().players.filter(p => p.name !== myName);
-            if(players.length === 0) {
-                await deleteDoc(gameRef);
-            } else {
-                await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
-            }
+            players.length === 0 ? await deleteDoc(gameRef) : await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
             location.reload();
         };
 
-        window.resetAll = async () => { if(confirm("全員消去しますか？")) await deleteDoc(gameRef); };
-
-        // ページを閉じた時に自動退出を試みる
-        window.addEventListener('beforeunload', () => {
-            if(myName) window.leaveGame();
-        });
-
-        /* --- 音響・ターン管理 (前回のロジックを維持) --- */
-        window.stopAllSounds = () => { oscillators.forEach(o => {try{o.stop()}catch(e){}}); oscillators = []; gainNodes = []; };
-        window.changeVol = (i, v) => { if(gainNodes[i]) gainNodes[i].gain.value = v; };
-        window.generateSounds = () => {
-            if(!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            window.stopAllSounds();
-            const types = ['sine', 'square', 'sawtooth', 'triangle'];
-            types.forEach((type, i) => {
-                const g = audioContext.createGain(); const o = audioContext.createOscillator();
-                o.type = type; o.frequency.value = 200 + (i*100);
-                o.connect(g).connect(audioContext.destination); g.gain.value = 0; o.start();
-                oscillators.push(o); gainNodes.push(g);
-                document.getElementById('sound-mixers').innerHTML += `<div class="sound-control">音${i+1}<br><input type="range" min="0" max="0.3" step="0.05" value="0" oninput="window.changeVol(${i}, this.value)"></div>`;
-            });
-        };
-        window.endTurn = async () => {
-            const snap = await getDoc(gameRef);
-            const data = snap.data();
-            await updateDoc(gameRef, { hostIndex: (data.hostIndex + 1) % data.players.length, updatedAt: serverTimestamp() });
-            window.stopAllSounds();
-        };
+        window.resetAll = async () => { if (confirm("解散しますか？")) await deleteDoc(gameRef); };
+        window.addEventListener('beforeunload', () => { if (myName) window.leaveGame(); });
     </script>
 </body>
+
 </html>
