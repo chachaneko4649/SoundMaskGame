@@ -1,16 +1,16 @@
-<!DOCTYPE html>
 <html lang="ja">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Mixer Party (Complete Ver.)</title>
+    <title>Sound Mixer Party - Official</title>
     <style>
         body {
             font-family: sans-serif;
             background: #f0f2f5;
             text-align: center;
             padding: 20px;
+            color: #333;
         }
 
         .card {
@@ -25,10 +25,11 @@
             background: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 12px 20px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
+            font-size: 16px;
         }
 
         .btn:disabled {
@@ -46,7 +47,7 @@
 
         .btn-secondary {
             background: #6c757d;
-            margin-top: 10px;
+            font-size: 14px;
         }
 
         .host-area {
@@ -57,22 +58,24 @@
         .player-item {
             display: flex;
             justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
             align-items: center;
         }
 
         .sound-control {
             margin: 15px 0;
             padding: 15px;
-            background: #eee;
+            background: #f8f9fa;
             border-radius: 10px;
             text-align: left;
+            border-left: 5px solid #007bff;
         }
 
         input[type=range] {
             width: 100%;
             margin-top: 10px;
+            cursor: pointer;
         }
 
         .hidden {
@@ -95,70 +98,79 @@
             border-radius: 10px;
             border: 2px solid #2196f3;
         }
+
+        .ranking-title {
+            border-bottom: 2px solid #007bff;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 
 <body>
 
     <div id="setup-screen" class="card">
-        <h2>サウンドパーティー</h2>
-        <p>名前を入力して参加してください</p>
-        <input type="text" id="player-name" placeholder="例: たろう" style="padding:10px; width:70%; font-size: 16px;">
+        <h1>🔊 Sound Mixer Party</h1>
+        <p>名前を入力してゲームに参加</p>
+        <input type="text" id="player-name" placeholder="例: たろう"
+            style="padding:12px; width:80%; font-size: 18px; border-radius: 5px; border: 1px solid #ccc;">
         <br><br>
-        <button class="btn" onclick="joinGame()">ゲームに参加</button>
+        <button class="btn" onclick="joinGame()">ゲームに参加する</button>
     </div>
 
     <div id="game-screen" class="hidden">
+
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 id="current-role" style="margin:0;">役割確認中...</h3>
+                <h3 id="current-role" style="margin:0; color: #007bff;">役割確認中...</h3>
                 <button class="btn btn-secondary" onclick="leaveGame()">退出</button>
             </div>
-            <h2 id="my-score">ポイント: 0</h2>
+            <h2 id="my-score" style="font-size: 2.5em; margin: 10px 0;">0 <span style="font-size: 0.4em;">pt</span></h2>
         </div>
 
         <div id="host-controls" class="card host-area hidden">
             <h3>🎨 ホスト操作パネル</h3>
-            <p style="font-size: 0.9em; color: #666;">①音を選び、②音量を調整してから、③再生してください</p>
+            <p style="font-size: 0.9em; color: #666;">音源を選出し、ミックスを準備してください</p>
 
             <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
 
             <div id="playback-area" class="hidden">
                 <div id="playback-controls">
-                    <p style="margin-bottom: 10px; font-weight: bold;">2. ミックス全体の操作</p>
-                    <button class="btn btn-success" onclick="playAll()">▶ ミックス再生開始</button>
+                    <p style="margin-bottom: 10px; font-weight: bold;">2. 全体の再生コントロール</p>
+                    <button class="btn btn-success" onclick="playAll()">▶ 再生開始</button>
                     <button class="btn btn-danger" onclick="pauseAll()">⏸ 一時停止</button>
                 </div>
                 <div id="sound-mixers"></div>
             </div>
 
-            <hr>
-            <h4>ポイント配布 (口頭で回答を確認)</h4>
+            <hr style="margin: 20px 0;">
+            <h4>ポイント付与</h4>
             <div id="player-scoring"></div>
-            <button class="btn btn-success" style="width:100%; padding:15px; margin-top:20px; font-size: 1.1em;"
-                onclick="endTurn()">ターンを終了して次のホストへ</button>
+            <button class="btn btn-success" style="width:100%; padding:18px; margin-top:20px; font-size: 1.2em;"
+                onclick="endTurn()">ターンを終了して次へ</button>
         </div>
 
         <div id="player-waiting" class="card hidden">
-            <div style="font-size: 3em; margin-bottom: 10px;">👂</div>
-            <p>ホストが音をミックスしています...<br>耳を澄ませて待ちましょう！</p>
+            <div style="font-size: 4em; margin: 20px 0;">👂</div>
+            <p style="font-weight: bold; font-size: 1.1em;">ホストが音をミックス中です...<br>耳を澄ませて待ちましょう！</p>
         </div>
 
         <div class="card">
-            <h3>プレイヤー一覧</h3>
+            <h3 class="ranking-title">現在のスコア表</h3>
             <div id="rankings"></div>
-            <hr>
-            <button class="btn btn-danger" style="font-size: 0.7em; opacity: 0.7;" onclick="resetAll()">※
-                データをリセット(解散)</button>
+            <hr style="margin-top: 30px; opacity: 0.3;">
+            <button class="btn btn-danger" style="font-size: 0.7em; padding: 5px 10px; opacity: 0.6;"
+                onclick="resetAll()">部屋を解散してリセット</button>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // 外部のサウンドリストを読み込み
         import { soundList } from "./sounds.js";
 
-        // FIXME: ここを自分の設定に上書きしてください
+        // FIXME: 自身のFirebase情報をここに貼り付け
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -176,37 +188,42 @@
         let audioElements = [];
         let isSoundGenerated = false;
 
-        // ゲーム参加
+        // 【重要】ボタンから呼び出すためにwindowオブジェクトに登録
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
             if (!nameInput) return alert("名前を入力してください");
             myName = nameInput;
 
-            const snap = await getDoc(gameRef);
-            let shouldInit = !snap.exists();
+            try {
+                const snap = await getDoc(gameRef);
+                let shouldInit = !snap.exists();
 
-            if (snap.exists()) {
-                const data = snap.data();
-                const lastUpdate = data.updatedAt ? data.updatedAt.toMillis() : 0;
-                if (Date.now() - lastUpdate > 600000) shouldInit = true; // 10分放置でリセット
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const lastUpdate = data.updatedAt ? data.updatedAt.toMillis() : 0;
+                    // 10分以上更新がなければ自動リセット
+                    if (Date.now() - lastUpdate > 600000) shouldInit = true;
+                }
+
+                if (shouldInit) {
+                    await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp() });
+                } else {
+                    const data = snap.data();
+                    const players = data.players || [];
+                    if (players.find(p => p.name === myName)) return alert("その名前は使用されています");
+                    players.push({ name: myName, score: 0 });
+                    await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
+                }
+
+                document.getElementById('setup-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.remove('hidden');
+                startSync();
+            } catch (e) {
+                console.error(e);
+                alert("接続エラー。Firebaseの設定やルールを確認してください。");
             }
-
-            if (shouldInit) {
-                await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp() });
-            } else {
-                const data = snap.data();
-                const players = data.players || [];
-                if (players.find(p => p.name === myName)) return alert("その名前は使用中");
-                players.push({ name: myName, score: 0 });
-                await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
-            }
-
-            document.getElementById('setup-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.remove('hidden');
-            startSync();
         };
 
-        // データのリアルタイム監視
         function startSync() {
             onSnapshot(gameRef, (docSnap) => {
                 if (!docSnap.exists()) { location.reload(); return; }
@@ -214,45 +231,51 @@
             });
         }
 
-        // 画面の更新
         function updateUI(data) {
             const players = data.players || [];
             if (players.length === 0) return;
             const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
 
-            document.getElementById('current-role').innerText = isHost ? "役割: あなたがホスト" : `ホスト: ${host.name}`;
+            document.getElementById('current-role').innerText = isHost ? "役割: あなたがホスト 👑" : `ホスト: ${host.name}`;
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
-            // ホストでない場合は音を強制停止
+            // ホストでない場合は再生を強制停止
             if (!isHost) stopAllSounds();
 
-            document.getElementById('my-score').innerText = `ポイント: ${players.find(p => p.name === myName)?.score || 0}`;
-            document.getElementById('rankings').innerHTML = players.map(p => `
-                <div class="player-item"><span>${p.name} ${p.name === host.name ? '👑' : ''}</span><b>${p.score}pt</b></div>
+            document.getElementById('my-score').innerText = players.find(p => p.name === myName)?.score || 0;
+
+            // スコアランキング更新
+            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+            document.getElementById('rankings').innerHTML = sortedPlayers.map(p => `
+                <div class="player-item">
+                    <span>${p.name} ${p.name === host.name ? ' (HOST)' : ''}</span>
+                    <b>${p.score} pt</b>
+                </div>
             `).join('');
 
+            // ポイント配布ボタン（ホストのみ）
             if (isHost) {
                 document.getElementById('player-scoring').innerHTML = players.map(p => `
-                    <div style="margin:5px 0;">${p.name}: 
-                        <button onclick="window.addPt('${p.name}', 1)">+1</button>
-                        <button onclick="window.addPt('${p.name}', 2)">+2</button>
-                        <button onclick="window.addPt('${p.name}', 3)">+3</button>
-                        <button onclick="window.addPt('${p.name}', -2)">-2</button>
+                    <div style="margin:10px 0; border-bottom: 1px dashed #ccc; padding-bottom:5px;">
+                        <span style="display:inline-block; width:80px; font-weight:bold;">${p.name}</span>
+                        <button class="btn btn-success" style="padding:5px 10px;" onclick="window.addPt('${p.name}', 1)">+1</button>
+                        <button class="btn btn-success" style="padding:5px 10px;" onclick="window.addPt('${p.name}', 2)">+2</button>
+                        <button class="btn btn-success" style="padding:5px 10px;" onclick="window.addPt('${p.name}', 3)">+3</button>
+                        <button class="btn btn-danger" style="padding:5px 10px;" onclick="window.addPt('${p.name}', -2)">-2</button>
                     </div>
                 `).join('');
             }
         }
 
-        /* --- 音響管理ロジック --- */
+        /* --- 音響ロジック --- */
         window.stopAllSounds = () => {
             audioElements.forEach(audio => { audio.pause(); audio.currentTime = 0; });
             audioElements = [];
             document.getElementById('sound-mixers').innerHTML = "";
             document.getElementById('playback-area').classList.add('hidden');
 
-            // ボタンを復活させる
             const genBtn = document.getElementById('gen-btn');
             if (genBtn) {
                 genBtn.disabled = false;
@@ -262,8 +285,63 @@
         };
 
         window.generateSounds = () => {
-            if (isSoundGenerated) return; // 2度押し禁止
+            if (isSoundGenerated) return;
 
+            // sounds.jsからリストを取得し、ランダムに4つ選ぶ
             const shuffled = [...soundList].sort(() => 0.5 - Math.random());
             const selected = shuffled.slice(0, 4);
-            const pts = [1,
+            const pts = [1, 2, 3, -2];
+
+            selected.forEach((sound, i) => {
+                const audio = new Audio(sound.file);
+                audio.loop = true;
+                audio.volume = 0; // 初期音量は0（準備用）
+                audioElements.push(audio);
+
+                document.getElementById('sound-mixers').innerHTML += `
+                    <div class="sound-control">
+                        <strong>音源${i + 1}: ${sound.name}</strong> <span class="score-badge">${pts[i]}pt</span><br>
+                        <input type="range" min="0" max="1" step="0.1" value="0" 
+                        oninput="window.changeVol(${i}, this.value)">
+                    </div>
+                `;
+            });
+
+            isSoundGenerated = true;
+            document.getElementById('gen-btn').disabled = true;
+            document.getElementById('gen-btn').innerText = "音源セット完了";
+            document.getElementById('playback-area').classList.remove('hidden');
+        };
+
+        window.playAll = () => audioElements.forEach(audio => audio.play().catch(e => console.warn(e)));
+        window.pauseAll = () => audioElements.forEach(audio => audio.pause());
+        window.changeVol = (idx, vol) => { if (audioElements[idx]) audioElements[idx].volume = vol; };
+
+        /* --- ポイント・退室処理 --- */
+        window.addPt = async (targetName, pt) => {
+            const snap = await getDoc(gameRef);
+            const players = snap.data().players.map(p => { if (p.name === targetName) p.score += pt; return p; });
+            await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
+        };
+
+        window.endTurn = async () => {
+            if (!confirm("次のホストへ交代しますか？")) return;
+            const snap = await getDoc(gameRef);
+            window.stopAllSounds();
+            await updateDoc(gameRef, { hostIndex: (snap.data().hostIndex + 1) % snap.data().players.length, updatedAt: serverTimestamp() });
+        };
+
+        window.leaveGame = async () => {
+            const snap = await getDoc(gameRef);
+            if (!snap.exists()) return;
+            const players = snap.data().players.filter(p => p.name !== myName);
+            players.length === 0 ? await deleteDoc(gameRef) : await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
+            location.reload();
+        };
+
+        window.resetAll = async () => { if (confirm("全員のデータを消去して解散しますか？")) await deleteDoc(gameRef); };
+        window.addEventListener('beforeunload', () => { if (myName) window.leaveGame(); });
+    </script>
+</body>
+
+</html>
