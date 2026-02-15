@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sound Mixer Party - DANGER Ver.</title>
     <style>
         body {
@@ -84,9 +84,9 @@
 
         select {
             padding: 5px;
-            margin-left: 10px;
             border-radius: 5px;
             border: 1px solid #ccc;
+            font-size: 14px;
         }
 
         .hidden {
@@ -117,18 +117,18 @@
             text-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
         }
 
-        /* 派手な演出用アニメーション */
+        /* --- 修正：ペナルティ演出のレスポンシブ対応 --- */
         @keyframes flash {
             0% {
-                background-color: rgba(255, 0, 0, 0.8);
+                background-color: rgba(255, 0, 0, 0.9);
             }
 
             50% {
-                background-color: rgba(255, 0, 0, 0);
+                background-color: rgba(255, 0, 0, 0.2);
             }
 
             100% {
-                background-color: rgba(255, 0, 0, 0.8);
+                background-color: rgba(255, 0, 0, 0.9);
             }
         }
 
@@ -144,15 +144,25 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            animation: flash 0.3s infinite;
+            animation: flash 0.25s infinite;
+            padding: 20px;
+            /* 余白を追加 */
+            box-sizing: border-box;
         }
 
         .danger-text {
             color: white;
-            font-size: 5rem;
+            font-size: 15vw;
+            /* 画面幅に基づいたサイズに変更 */
+            max-font-size: 80px;
             font-weight: bold;
-            text-shadow: 2px 2px 10px black;
+            text-shadow: 0 0 20px black;
+            line-height: 1.2;
+            word-wrap: break-word;
+            /* はみ出し防止 */
         }
+
+        /* -------------------------------------- */
     </style>
 </head>
 
@@ -160,7 +170,7 @@
 
     <div id="danger-overlay">
         <div class="danger-text">DANGER!</div>
-        <div class="danger-text" style="font-size: 2rem;">-2 POINTS!!</div>
+        <div class="danger-text" style="font-size: 8vw;">-2 POINTS!!</div>
     </div>
 
     <div id="setup-screen" class="card">
@@ -216,6 +226,7 @@
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { soundList } from "./sounds.js";
 
+        // FIXME: 自身のFirebase情報をここに貼り付け
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -233,7 +244,7 @@
         let audioElements = [];
         let isSoundGenerated = false;
         let distributedPlayers = new Set();
-        let lastMyScore = 0; // 前回自分のスコアを記憶
+        let lastMyScore = 0;
 
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
@@ -270,12 +281,9 @@
             });
         }
 
-        // ペナルティ（マイナス点）演出チェック
         function checkPenalty(players) {
             const me = players.find(p => p.name === myName);
             if (!me) return;
-
-            // スコアが減少（-2された）場合に発動
             if (me.score < lastMyScore) {
                 triggerDangerEffect();
             }
@@ -285,20 +293,10 @@
         function triggerDangerEffect() {
             const overlay = document.getElementById('danger-overlay');
             overlay.style.display = 'flex';
-
-            // 1. バイブレーション（対応機種のみ）
-            if (navigator.vibrate) {
-                navigator.vibrate([200, 100, 200, 100, 500]);
-            }
-
-            // 2. 警告音再生
-            const warnAudio = new Audio('sounds/warn.mp3'); // soundsフォルダにwarn.mp3が必要
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]);
+            const warnAudio = new Audio('sounds/warn.mp3');
             warnAudio.play().catch(e => console.log(e));
-
-            // 3秒後に演出終了
-            setTimeout(() => {
-                overlay.style.display = 'none';
-            }, 3000);
+            setTimeout(() => { overlay.style.display = 'none'; }, 3000);
         }
 
         function updateUI(data) {
@@ -326,17 +324,16 @@
             if (isHost) {
                 document.getElementById('player-scoring').innerHTML = players.map(p => {
                     const isDone = distributedPlayers.has(p.name);
-                    return `<div style="margin:10px 0;">${p.name}: ${isDone ? '✅' : `
-                        <button class="btn btn-success" onclick="window.addPt('${p.name}', 1)">+1</button>
-                        <button class="btn btn-success" onclick="window.addPt('${p.name}', 2)">+2</button>
-                        <button class="btn btn-success" onclick="window.addPt('${p.name}', 3)">+3</button>
-                        <button class="btn btn-danger" onclick="window.addPt('${p.name}', -2)">-2</button>
+                    return `<div style="margin:10px 0;">${p.name}: ${isDone ? '✅ 配布済み' : `
+                        <button class="btn btn-success" style="padding:5px 8px; font-size:12px;" onclick="window.addPt('${p.name}', 1)">+1</button>
+                        <button class="btn btn-success" style="padding:5px 8px; font-size:12px;" onclick="window.addPt('${p.name}', 2)">+2</button>
+                        <button class="btn btn-success" style="padding:5px 8px; font-size:12px;" onclick="window.addPt('${p.name}', 3)">+3</button>
+                        <button class="btn btn-danger" style="padding:5px 8px; font-size:12px;" onclick="window.addPt('${p.name}', -2)">-2</button>
                     `}</div>`;
                 }).join('');
             }
         }
 
-        /* --- 音響・その他ロジック --- */
         window.stopAllSounds = () => {
             audioElements.forEach(audio => { audio.pause(); audio.currentTime = 0; });
             audioElements = [];
