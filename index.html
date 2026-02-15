@@ -5,9 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" href="data:,">
-    <title>Sound Mixer Party - Reliability Pro</title>
+    <title>Sound Mixer Party - Mobile Touch Ver.</title>
     <style>
-        /* スタイルは維持 */
         body {
             font-family: sans-serif;
             background: #f0f2f5;
@@ -15,9 +14,10 @@
             padding: 10px;
             color: #333;
             overflow-x: hidden;
-            touch-action: manipulation;
+            touch-action: none;
         }
 
+        /* タッチ操作をJSで制御するためnoneに */
         .card {
             background: white;
             border-radius: 15px;
@@ -79,8 +79,8 @@
             justify-content: center;
             gap: 8px;
             margin: 10px 0;
-            min-height: 50px;
-            padding: 5px;
+            min-height: 60px;
+            padding: 10px;
             background: #eee;
             border-radius: 10px;
         }
@@ -96,6 +96,9 @@
             cursor: grab;
             font-size: 14px;
             box-shadow: 0 3px 0 #0056b3;
+            touch-action: none;
+            position: relative;
+            z-index: 10;
         }
 
         .chip[data-pt="-2"] {
@@ -125,7 +128,7 @@
         }
 
         .drop-zone {
-            height: 55px;
+            height: 60px;
             border: 2px dashed #aaa;
             border-radius: 8px;
             display: flex;
@@ -157,22 +160,6 @@
             align-items: center;
         }
 
-        #danger-overlay {
-            animation: flash 0.25s infinite;
-        }
-
-        @keyframes flash {
-
-            0%,
-            100% {
-                background-color: rgba(255, 0, 0, 0.7);
-            }
-
-            50% {
-                background-color: transparent;
-            }
-        }
-
         .overlay-text {
             font-size: 12vw;
             font-weight: bold;
@@ -184,7 +171,7 @@
 
 <body>
 
-    <div id="danger-overlay">
+    <div id="danger-overlay" style="background:rgba(255,0,0,0.7)">
         <div class="overlay-text">DANGER!</div>
     </div>
     <div id="success-overlay" style="background:rgba(40,167,69,0.9)">
@@ -214,10 +201,10 @@
             <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
             <div id="playback-area" class="hidden">
                 <div class="point-chips" id="point-pool">
-                    <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-1" data-pt="1">1pt</div>
-                    <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-2" data-pt="2">2pt</div>
-                    <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-3" data-pt="3">3pt</div>
-                    <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-m2" data-pt="-2">-2pt</div>
+                    <div class="chip" id="chip-1" data-pt="1">1pt</div>
+                    <div class="chip" id="chip-2" data-pt="2">2pt</div>
+                    <div class="chip" id="chip-3" data-pt="3">3pt</div>
+                    <div class="chip" id="chip-m2" data-pt="-2">-2pt</div>
                 </div>
                 <div style="margin:10px 0;">
                     <button class="btn btn-success" onclick="playAll()">▶ 再生</button>
@@ -226,7 +213,6 @@
                 <div id="sound-mixers"></div>
             </div>
             <hr>
-            <h4>ポイント配布</h4>
             <div id="player-scoring"></div>
             <button class="btn btn-success" style="width:100%; margin-top:15px;" onclick="endTurn()">交代する</button>
         </div>
@@ -245,6 +231,7 @@
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { soundList } from "./sounds.js";
 
+        // FIXME: FirebaseConfigを上書き
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -262,46 +249,89 @@
         let audioElements = [];
         let distributedPlayers = new Set();
         let soundPoints = [0, 0, 0, 0];
-        let lastAwardId = "";
-        let lastMyScore = 0; // スコア減少検知用
+        let lastAwardId = "INITIAL_IGNORE";
 
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
             if (!nameInput) return;
             myName = nameInput;
-
-            try {
-                const snap = await getDoc(gameRef);
-                // 10分以上放置データならリセット
-                if (snap.exists() && Date.now() - (snap.data().updatedAt?.toMillis() || 0) > 600000) {
-                    await deleteDoc(gameRef);
+            const snap = await getDoc(gameRef);
+            if (!snap.exists()) {
+                await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp() });
+            } else {
+                const players = snap.data().players;
+                if (!players.find(p => p.name === myName)) {
+                    players.push({ name: myName, score: 0 });
+                    await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
                 }
+            }
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            initTouchEvents(); // タッチ操作の初期化
+            startSync();
+        };
 
-                const freshSnap = await getDoc(gameRef);
-                if (!freshSnap.exists()) {
-                    // 最初の人がホスト
-                    await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp(), lastAward: null });
-                    lastMyScore = 0;
-                } else {
-                    const data = freshSnap.data();
-                    let players = data.players || [];
-                    const existing = players.find(p => p.name === myName);
-                    if (!existing) {
-                        players.push({ name: myName, score: 0 });
-                        await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
-                        lastMyScore = 0;
+        // --- スマホ用タッチドラッグの実装 ---
+        function initTouchEvents() {
+            const chips = document.querySelectorAll('.chip');
+            chips.forEach(chip => {
+                let startX, startY, initialX, initialY;
+
+                chip.addEventListener('touchstart', (e) => {
+                    const touch = e.touches[0];
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+                    const rect = chip.getBoundingClientRect();
+                    initialX = rect.left;
+                    initialY = rect.top;
+                    chip.style.position = 'fixed';
+                    chip.style.left = initialX + 'px';
+                    chip.style.top = initialY + 'px';
+                });
+
+                chip.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const dx = touch.clientX - startX;
+                    const dy = touch.clientY - startY;
+                    chip.style.left = (initialX + dx) + 'px';
+                    chip.style.top = (initialY + dy) + 'px';
+                });
+
+                chip.addEventListener('touchend', (e) => {
+                    chip.style.display = 'none'; // 下にある要素を判定するため一時隠す
+                    const touch = e.changedTouches[0];
+                    const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+                    chip.style.display = 'block';
+
+                    const dropZone = dropTarget ? dropTarget.closest('.drop-zone') : null;
+
+                    if (dropZone) {
+                        if (dropZone.hasChildNodes()) document.getElementById('point-pool').appendChild(dropZone.firstChild);
+                        dropZone.appendChild(chip);
+                        chip.style.position = 'static';
+                        soundPoints[dropZone.dataset.idx] = parseInt(chip.dataset.pt);
                     } else {
-                        lastMyScore = existing.score; // 復帰時は現在のスコアを基準にする
+                        document.getElementById('point-pool').appendChild(chip);
+                        chip.style.position = 'static';
                     }
-                }
+                });
+            });
+        }
 
-                // 演出用IDをリセットして初動の誤爆を防ぐ
-                lastAwardId = "INITIAL_IGNORE";
-
-                document.getElementById('setup-screen').classList.add('hidden');
-                document.getElementById('game-screen').classList.remove('hidden');
-                startSync();
-            } catch (e) { alert("Error: " + e.message); }
+        // --- PC用ドラッグ＆ドロップ ---
+        window.drag = (ev) => { ev.dataTransfer.setData("text", ev.target.id); };
+        window.allowDrop = (ev) => { ev.preventDefault(); };
+        window.drop = (ev) => {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const chip = document.getElementById(data);
+            const dropzone = ev.target.closest('.drop-zone');
+            if (dropzone && chip) {
+                if (dropzone.hasChildNodes()) document.getElementById('point-pool').appendChild(dropzone.firstChild);
+                dropzone.appendChild(chip);
+                soundPoints[dropzone.dataset.idx] = parseInt(chip.dataset.pt);
+            }
         };
 
         function startSync() {
@@ -313,24 +343,8 @@
             });
         }
 
-        window.drag = (ev) => { ev.dataTransfer.setData("text", ev.target.id); };
-        window.allowDrop = (ev) => { ev.preventDefault(); };
-        window.drop = (ev) => {
-            ev.preventDefault();
-            const data = ev.dataTransfer.getData("text");
-            const chip = document.getElementById(data);
-            const dropzone = ev.target.closest('.drop-zone');
-            if (!dropzone || !chip) return;
-            if (dropzone.hasChildNodes()) document.getElementById('point-pool').appendChild(dropzone.firstChild);
-            dropzone.appendChild(chip);
-            soundPoints[dropzone.dataset.idx] = parseInt(chip.dataset.pt);
-        };
-
         function updateUI(data) {
             const players = data.players || [];
-            if (players.length === 0) return;
-
-            // 現在のホストを特定
             const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
 
@@ -339,18 +353,17 @@
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
             if (!isHost) stopAllSounds();
-            const me = players.find(p => p.name === myName);
-            document.getElementById('my-score').innerText = (me?.score || 0) + " pt";
+            document.getElementById('my-score').innerText = (players.find(p => p.name === myName)?.score || 0) + " pt";
 
             document.getElementById('rankings').innerHTML = [...players].sort((a, b) => b.score - a.score).map(p => `
-                <div class="player-item"><span>${p.name}${p.name === host.name ? ' (HOST)' : ''}</span><b>${p.score} pt</b></div>
+                <div class="player-item"><span>${p.name}</span><b>${p.score} pt</b></div>
             `).join('');
 
             if (isHost) {
                 document.getElementById('player-scoring').innerHTML = players.map(p => {
                     const isDone = distributedPlayers.has(p.name);
                     return `<div style="margin:5px 0; border-bottom:1px solid #eee; padding:5px 0;">
-                        <span style="display:inline-block; width:60px;">${p.name}</span>
+                        <span style="display:inline-block; width:60px; font-weight:bold;">${p.name}</span>
                         ${isDone ? '✅' : `
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 0)">音1</button>
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 1)">音2</button>
@@ -421,17 +434,14 @@
 
         function checkAwardEffect(data) {
             const award = data.lastAward;
-            // 参加直後の誤爆防止チェックを追加
-            if (!award || award.target !== myName || award.id === lastAwardId || lastAwardId === "INITIAL_IGNORE") {
-                if (lastAwardId === "INITIAL_IGNORE") lastAwardId = award ? award.id : "";
+            if (!award || award.target !== myName || award.id === lastAwardId) {
+                if (lastAwardId === "INITIAL_IGNORE" && award) lastAwardId = award.id;
                 return;
             }
-
             lastAwardId = award.id;
             const id = award.pt < 0 ? 'danger-overlay' : (award.pt === 3 ? 'great-overlay' : 'success-overlay');
             const sound = award.pt < 0 ? 'warn.mp3' : (award.pt === 3 ? 'great.mp3' : 'success.mp3');
             if (id !== 'danger-overlay') document.getElementById(id.replace('-overlay', '-name')).innerText = award.soundName;
-
             const overlay = document.getElementById(id);
             overlay.style.display = 'flex';
             new Audio(`sounds/${sound}`).play().catch(e => console.log(e));
@@ -440,15 +450,13 @@
 
         window.playAll = () => audioElements.forEach(a => a.play());
         window.pauseAll = () => audioElements.forEach(a => a.pause());
-
         window.endTurn = async () => {
             if (!confirm("交代しますか？")) return;
             window.stopAllSounds(); distributedPlayers.clear();
             const snap = await getDoc(gameRef);
             await updateDoc(gameRef, { hostIndex: (snap.data().hostIndex + 1) % snap.data().players.length, updatedAt: serverTimestamp(), lastAward: null });
         };
-
-        window.resetAll = async () => { if (confirm("部屋をリセット？")) await deleteDoc(gameRef); location.reload(); };
+        window.resetAll = async () => { if (confirm("リセット？")) await deleteDoc(gameRef); location.reload(); };
         window.leaveGame = async () => { location.reload(); };
     </script>
 </body>
