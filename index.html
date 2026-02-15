@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" href="data:,">
-    <title>Sound Mixer Party - Mobile Touch Ver.</title>
+    <title>Sound Mixer Party - Tap Select Ver.</title>
     <style>
         body {
             font-family: sans-serif;
@@ -14,10 +14,9 @@
             padding: 10px;
             color: #333;
             overflow-x: hidden;
-            touch-action: none;
+            touch-action: manipulation;
         }
 
-        /* タッチ操作をJSで制御するためnoneに */
         .card {
             background: white;
             border-radius: 15px;
@@ -74,15 +73,13 @@
             align-items: center;
         }
 
+        /* ポイントチップ管理 */
         .point-chips {
             display: flex;
             justify-content: center;
-            gap: 8px;
+            gap: 10px;
             margin: 10px 0;
-            min-height: 60px;
-            padding: 10px;
-            background: #eee;
-            border-radius: 10px;
+            min-height: 50px;
         }
 
         .chip {
@@ -93,12 +90,16 @@
             background: #007bff;
             color: white;
             font-weight: bold;
-            cursor: grab;
             font-size: 14px;
             box-shadow: 0 3px 0 #0056b3;
-            touch-action: none;
-            position: relative;
-            z-index: 10;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .chip.used {
+            opacity: 0.2;
+            transform: scale(0.8);
+            cursor: default;
         }
 
         .chip[data-pt="-2"] {
@@ -127,17 +128,25 @@
             margin-top: 5px;
         }
 
-        .drop-zone {
-            height: 60px;
+        /* スロット（タップ領域） */
+        .pt-slot {
+            height: 50px;
             border: 2px dashed #aaa;
-            border-radius: 8px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 8px 0;
             background: #fff;
-            font-size: 11px;
+            cursor: pointer;
+            font-weight: bold;
             color: #999;
+        }
+
+        .pt-slot.filled {
+            border: 2px solid #007bff;
+            color: #333;
+            background: #e3f2fd;
         }
 
         .hidden {
@@ -200,11 +209,12 @@
         <div id="host-controls" class="card host-area hidden">
             <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
             <div id="playback-area" class="hidden">
-                <div class="point-chips" id="point-pool">
-                    <div class="chip" id="chip-1" data-pt="1">1pt</div>
-                    <div class="chip" id="chip-2" data-pt="2">2pt</div>
-                    <div class="chip" id="chip-3" data-pt="3">3pt</div>
-                    <div class="chip" id="chip-m2" data-pt="-2">-2pt</div>
+                <p style="font-size:12px; margin:10px 0 5px;">ポイントチップ（タップして選択）：</p>
+                <div class="point-chips">
+                    <div class="chip" id="btn-pt-1" onclick="selectChip(1, this)">1pt</div>
+                    <div class="chip" id="btn-pt-2" onclick="selectChip(2, this)">2pt</div>
+                    <div class="chip" id="btn-pt-3" onclick="selectChip(3, this)">3pt</div>
+                    <div class="chip" id="btn-pt-m2" data-pt="-2" onclick="selectChip(-2, this)">-2pt</div>
                 </div>
                 <div style="margin:10px 0;">
                     <button class="btn btn-success" onclick="playAll()">▶ 再生</button>
@@ -231,7 +241,6 @@
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { soundList } from "./sounds.js";
 
-        // FIXME: FirebaseConfigを上書き
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -248,8 +257,9 @@
         let myName = "";
         let audioElements = [];
         let distributedPlayers = new Set();
-        let soundPoints = [0, 0, 0, 0];
+        let soundPoints = [null, null, null, null];
         let lastAwardId = "INITIAL_IGNORE";
+        let currentSelectedPt = null;
 
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
@@ -267,72 +277,51 @@
             }
             document.getElementById('setup-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
-            initTouchEvents(); // タッチ操作の初期化
             startSync();
         };
 
-        // --- スマホ用タッチドラッグの実装 ---
-        function initTouchEvents() {
-            const chips = document.querySelectorAll('.chip');
-            chips.forEach(chip => {
-                let startX, startY, initialX, initialY;
-
-                chip.addEventListener('touchstart', (e) => {
-                    const touch = e.touches[0];
-                    startX = touch.clientX;
-                    startY = touch.clientY;
-                    const rect = chip.getBoundingClientRect();
-                    initialX = rect.left;
-                    initialY = rect.top;
-                    chip.style.position = 'fixed';
-                    chip.style.left = initialX + 'px';
-                    chip.style.top = initialY + 'px';
-                });
-
-                chip.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    const touch = e.touches[0];
-                    const dx = touch.clientX - startX;
-                    const dy = touch.clientY - startY;
-                    chip.style.left = (initialX + dx) + 'px';
-                    chip.style.top = (initialY + dy) + 'px';
-                });
-
-                chip.addEventListener('touchend', (e) => {
-                    chip.style.display = 'none'; // 下にある要素を判定するため一時隠す
-                    const touch = e.changedTouches[0];
-                    const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
-                    chip.style.display = 'block';
-
-                    const dropZone = dropTarget ? dropTarget.closest('.drop-zone') : null;
-
-                    if (dropZone) {
-                        if (dropZone.hasChildNodes()) document.getElementById('point-pool').appendChild(dropZone.firstChild);
-                        dropZone.appendChild(chip);
-                        chip.style.position = 'static';
-                        soundPoints[dropZone.dataset.idx] = parseInt(chip.dataset.pt);
-                    } else {
-                        document.getElementById('point-pool').appendChild(chip);
-                        chip.style.position = 'static';
-                    }
-                });
-            });
-        }
-
-        // --- PC用ドラッグ＆ドロップ ---
-        window.drag = (ev) => { ev.dataTransfer.setData("text", ev.target.id); };
-        window.allowDrop = (ev) => { ev.preventDefault(); };
-        window.drop = (ev) => {
-            ev.preventDefault();
-            const data = ev.dataTransfer.getData("text");
-            const chip = document.getElementById(data);
-            const dropzone = ev.target.closest('.drop-zone');
-            if (dropzone && chip) {
-                if (dropzone.hasChildNodes()) document.getElementById('point-pool').appendChild(dropzone.firstChild);
-                dropzone.appendChild(chip);
-                soundPoints[dropzone.dataset.idx] = parseInt(chip.dataset.pt);
-            }
+        // --- ポイント選択ロジック ---
+        window.selectChip = (pt, el) => {
+            if (el.classList.contains('used')) return;
+            // 選択中のチップを解除
+            document.querySelectorAll('.chip').forEach(c => c.style.border = "none");
+            currentSelectedPt = pt;
+            el.style.border = "3px solid #333";
         };
+
+        window.setPointToSlot = (idx) => {
+            if (currentSelectedPt === null) return alert("先に上のポイントチップを選んでください");
+
+            // すでに他の音源に同じポイントが入っていたらリセット
+            const oldIdx = soundPoints.indexOf(currentSelectedPt);
+            if (oldIdx !== -1) {
+                soundPoints[oldIdx] = null;
+                document.getElementById(`slot-${oldIdx}`).innerText = "？ pt";
+                document.getElementById(`slot-${oldIdx}`).classList.remove('filled');
+            }
+
+            // 新しくセット
+            soundPoints[idx] = currentSelectedPt;
+            const slot = document.getElementById(`slot-${idx}`);
+            slot.innerText = currentSelectedPt + " pt";
+            slot.classList.add('filled');
+
+            // チップの使用済み状態を更新
+            updateChipStatus();
+        };
+
+        function updateChipStatus() {
+            document.querySelectorAll('.chip').forEach(chip => {
+                const pt = parseInt(chip.id.replace('btn-pt-', '').replace('m2', '-2'));
+                if (soundPoints.includes(pt)) {
+                    chip.classList.add('used');
+                    chip.style.border = "none";
+                } else {
+                    chip.classList.remove('used');
+                }
+            });
+            currentSelectedPt = null;
+        }
 
         function startSync() {
             onSnapshot(gameRef, (docSnap) => {
@@ -348,7 +337,7 @@
             const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
 
-            document.getElementById('current-role').innerText = isHost ? "役割: あなたがホスト 👑" : `ホスト: ${host.name}`;
+            document.getElementById('current-role').innerText = isHost ? "役割: ホスト 👑" : `ホスト: ${host.name}`;
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
@@ -377,7 +366,7 @@
 
         window.distributePt = async (target, sIdx) => {
             const pt = soundPoints[sIdx];
-            if (pt === 0) return alert("ポイントをセットしてください");
+            if (pt === null) return alert("この音のポイントが決まっていません！");
             await window.distributeManual(target, pt, window.currentSoundNames[sIdx]);
         };
 
@@ -413,7 +402,7 @@
                             <button class="btn btn-vol" onclick="window.changeVolSimple(${i}, 2, this)">大</button>
                         </div>
                     </div>
-                    <div class="drop-zone" data-idx="${i}" ondrop="drop(event)" ondragover="allowDrop(event)">ptをドラッグ</div>
+                    <div class="pt-slot" id="slot-${i}" onclick="window.setPointToSlot(${i})">？ pt</div>
                 </div>`;
             }).join('');
             document.getElementById('playback-area').classList.remove('hidden');
@@ -424,12 +413,12 @@
             audioElements = [];
             document.getElementById('sound-mixers').innerHTML = "";
             document.getElementById('playback-area').classList.add('hidden');
-            const pool = document.getElementById('point-pool');
-            ['chip-1', 'chip-2', 'chip-3', 'chip-m2'].forEach(id => {
-                const chip = document.getElementById(id);
-                if (chip) pool.appendChild(chip);
+            soundPoints = [null, null, null, null];
+            document.querySelectorAll('.chip').forEach(c => {
+                c.classList.remove('used');
+                c.style.border = "none";
             });
-            soundPoints = [0, 0, 0, 0];
+            currentSelectedPt = null;
         };
 
         function checkAwardEffect(data) {
