@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sound Mixer Party - DANGER Ver.</title>
+    <title>Sound Mixer Party - Deluxe Ver.</title>
     <style>
         body {
             font-family: sans-serif;
@@ -117,22 +117,48 @@
             text-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
         }
 
-        /* --- 修正：ペナルティ演出のレスポンシブ対応 --- */
-        @keyframes flash {
-            0% {
+        /* --- 演出用アニメーション --- */
+        @keyframes flash-red {
+
+            0%,
+            100% {
                 background-color: rgba(255, 0, 0, 0.9);
             }
 
             50% {
-                background-color: rgba(255, 0, 0, 0.2);
-            }
-
-            100% {
-                background-color: rgba(255, 0, 0, 0.9);
+                background-color: transparent;
             }
         }
 
-        #danger-overlay {
+        @keyframes bounce-in {
+            0% {
+                transform: scale(0.3);
+                opacity: 0;
+            }
+
+            70% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes shine {
+            0% {
+                background-position: -200%;
+            }
+
+            100% {
+                background-position: 200%;
+            }
+        }
+
+        #danger-overlay,
+        #success-overlay,
+        #great-overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -144,39 +170,62 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            animation: flash 0.25s infinite;
             padding: 20px;
-            /* 余白を追加 */
             box-sizing: border-box;
         }
 
-        .danger-text {
-            color: white;
-            font-size: 15vw;
-            /* 画面幅に基づいたサイズに変更 */
-            max-font-size: 80px;
-            font-weight: bold;
-            text-shadow: 0 0 20px black;
-            line-height: 1.2;
-            word-wrap: break-word;
-            /* はみ出し防止 */
+        #danger-overlay {
+            animation: flash-red 0.25s infinite;
         }
 
-        /* -------------------------------------- */
+        #success-overlay {
+            background-color: rgba(40, 167, 69, 0.9);
+            color: white;
+        }
+
+        /* 3ポイント用の豪華な背景 */
+        #great-overlay {
+            background: linear-gradient(135deg, #ffd700, #ff8c00, #ffd700);
+            background-size: 200% 200%;
+            animation: shine 2s infinite linear;
+            color: white;
+        }
+
+        .overlay-text {
+            font-size: 15vw;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            line-height: 1.2;
+            animation: bounce-in 0.5s;
+        }
+
+        .overlay-sub {
+            font-size: 8vw;
+            font-weight: bold;
+            margin-top: 10px;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
     </style>
 </head>
 
 <body>
 
     <div id="danger-overlay">
-        <div class="danger-text">DANGER!</div>
-        <div class="danger-text" style="font-size: 8vw;">-2 POINTS!!</div>
+        <div class="overlay-text">DANGER!</div>
+        <div class="overlay-sub">-2 POINTS!!</div>
+    </div>
+    <div id="success-overlay">
+        <div id="success-name" class="overlay-text">GOOD!</div>
+        <div id="success-pt" class="overlay-sub">+1 pt</div>
+    </div>
+    <div id="great-overlay">
+        <div id="great-name" class="overlay-text">GREAT!!</div>
+        <div id="great-pt" class="overlay-sub">+3 POINTS!!</div>
     </div>
 
     <div id="setup-screen" class="card">
         <h1>🔊 Sound Mixer Party</h1>
-        <p>名前を入力してゲームに参加</p>
-        <input type="text" id="player-name" placeholder="例: たろう"
+        <input type="text" id="player-name" placeholder="名前を入力"
             style="padding:12px; width:80%; font-size: 18px; border-radius: 5px; border: 1px solid #ccc;">
         <br><br>
         <button class="btn" onclick="joinGame()">ゲームに参加する</button>
@@ -185,14 +234,14 @@
     <div id="game-screen" class="hidden">
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 id="current-role" style="margin:0; color: #007bff;">役割確認中...</h3>
+                <h3 id="current-role" style="margin:0; color: #007bff;">確認中...</h3>
                 <button class="btn btn-secondary" onclick="leaveGame()">退出</button>
             </div>
-            <h2 id="my-score" style="font-size: 2.5em; margin: 10px 0;">0 <span style="font-size: 0.4em;">pt</span></h2>
+            <h2 id="my-score" style="font-size: 2.5em; margin: 10px 0;">0 pt</h2>
         </div>
 
         <div id="host-controls" class="card host-area hidden">
-            <h3>🎨 ホスト操作パネル</h3>
+            <h3>🎨 ホストパネル</h3>
             <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
             <div id="playback-area" class="hidden">
                 <div id="playback-controls">
@@ -202,10 +251,9 @@
                 <div id="sound-mixers"></div>
             </div>
             <hr>
-            <h4>ポイント付与</h4>
+            <h4>ポイント配布 (1人1回)</h4>
             <div id="player-scoring"></div>
-            <button class="btn btn-success" style="width:100%; padding:18px; margin-top:20px;"
-                onclick="endTurn()">交代する</button>
+            <button class="btn btn-success" style="width:100%; padding:18px;" onclick="endTurn()">交代する</button>
         </div>
 
         <div id="player-waiting" class="card hidden">
@@ -214,7 +262,7 @@
         </div>
 
         <div class="card">
-            <h3>スコアランキング</h3>
+            <h3 style="border-bottom: 2px solid #007bff; display: inline-block;">ランキング</h3>
             <div id="rankings"></div>
             <hr>
             <button class="btn btn-danger" style="font-size: 0.7em;" onclick="resetAll()">リセット</button>
@@ -244,7 +292,7 @@
         let audioElements = [];
         let isSoundGenerated = false;
         let distributedPlayers = new Set();
-        let lastMyScore = 0;
+        let lastAwardId = "";
 
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
@@ -252,16 +300,12 @@
             myName = nameInput;
             try {
                 const snap = await getDoc(gameRef);
-                let shouldInit = !snap.exists();
-                if (snap.exists()) {
-                    const data = snap.data();
-                    if (Date.now() - (data.updatedAt?.toMillis() || 0) > 600000) shouldInit = true;
-                }
-                if (shouldInit) {
-                    await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp() });
+                if (snap.exists() && Date.now() - (snap.data().updatedAt?.toMillis() || 0) > 600000) await deleteDoc(gameRef);
+                const freshSnap = await getDoc(gameRef);
+                if (!freshSnap.exists()) {
+                    await setDoc(gameRef, { players: [{ name: myName, score: 0 }], hostIndex: 0, updatedAt: serverTimestamp(), lastAward: null });
                 } else {
-                    const data = snap.data();
-                    const players = data.players || [];
+                    const players = freshSnap.data().players || [];
                     if (players.find(p => p.name === myName)) return alert("使用中");
                     players.push({ name: myName, score: 0 });
                     await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
@@ -276,27 +320,40 @@
             onSnapshot(gameRef, (docSnap) => {
                 if (!docSnap.exists()) { location.reload(); return; }
                 const data = docSnap.data();
-                checkPenalty(data.players);
+                checkAwardEffect(data);
                 updateUI(data);
             });
         }
 
-        function checkPenalty(players) {
-            const me = players.find(p => p.name === myName);
-            if (!me) return;
-            if (me.score < lastMyScore) {
-                triggerDangerEffect();
+        // --- 演出ロジックの強化 ---
+        function checkAwardEffect(data) {
+            const award = data.lastAward;
+            if (!award || award.target !== myName || award.id === lastAwardId) return;
+
+            lastAwardId = award.id;
+
+            if (award.pt < 0) {
+                // マイナス演出
+                triggerOverlay('danger-overlay', 'warn.mp3', [200, 100, 200]);
+            } else if (award.pt === 3) {
+                // 最高得点(3pt)の特別演出
+                document.getElementById('great-name').innerText = award.soundName.toUpperCase() + "!";
+                document.getElementById('great-pt').innerText = `+${award.pt} POINTS!!`;
+                triggerOverlay('great-overlay', 'great.mp3', [100, 50, 100, 50, 500]);
+            } else {
+                // 通常正解(1, 2pt)の演出
+                document.getElementById('success-name').innerText = award.soundName.toUpperCase() + "!";
+                document.getElementById('success-pt').innerText = `+${award.pt} pt`;
+                triggerOverlay('success-overlay', 'success.mp3', [100, 50, 100]);
             }
-            lastMyScore = me.score;
         }
 
-        function triggerDangerEffect() {
-            const overlay = document.getElementById('danger-overlay');
+        function triggerOverlay(id, soundFile, vibePattern) {
+            const overlay = document.getElementById(id);
             overlay.style.display = 'flex';
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]);
-            const warnAudio = new Audio('sounds/warn.mp3');
-            warnAudio.play().catch(e => console.log(e));
-            setTimeout(() => { overlay.style.display = 'none'; }, 3000);
+            if (navigator.vibrate) navigator.vibrate(vibePattern);
+            new Audio(`sounds/${soundFile}`).play().catch(e => console.log(e));
+            setTimeout(() => { overlay.style.display = 'none'; }, 3500);
         }
 
         function updateUI(data) {
@@ -310,12 +367,10 @@
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
             if (!isHost) stopAllSounds();
-
-            document.getElementById('my-score').innerText = players.find(p => p.name === myName)?.score || 0;
+            document.getElementById('my-score').innerText = (players.find(p => p.name === myName)?.score || 0) + " pt";
 
             const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
             const topScore = sortedPlayers[0].score;
-
             document.getElementById('rankings').innerHTML = sortedPlayers.map(p => {
                 const crown = (p.score === topScore && p.score > 0) ? '<span class="crown">👑</span>' : '';
                 return `<div class="player-item"><span>${crown}${p.name}</span><b>${p.score} pt</b></div>`;
@@ -324,16 +379,46 @@
             if (isHost) {
                 document.getElementById('player-scoring').innerHTML = players.map(p => {
                     const isDone = distributedPlayers.has(p.name);
-                    return `<div style="margin:10px 0;">${p.name}: ${isDone ? '✅ 配布済み' : `
-                        <button class="btn btn-success" style="padding:5px 8px; font-size:12px;" onclick="window.addPt('${p.name}', 1)">+1</button>
-                        <button class="btn btn-success" style="padding:5px 8px; font-size:12px;" onclick="window.addPt('${p.name}', 2)">+2</button>
-                        <button class="btn btn-success" style="padding:5px 8px; font-size:12px;" onclick="window.addPt('${p.name}', 3)">+3</button>
-                        <button class="btn btn-danger" style="padding:5px 8px; font-size:12px;" onclick="window.addPt('${p.name}', -2)">-2</button>
-                    `}</div>`;
+                    return `<div style="margin:10px 0; border-bottom: 1px dashed #ccc; padding-bottom:5px;">
+                        <span style="display:inline-block; width:80px; font-weight:bold;">${p.name}</span>
+                        ${isDone ? '<span style="color:#28a745;">配布済み</span>' : `
+                            <button class="btn btn-success" style="padding:5px 10px;" onclick="window.distributePt('${p.name}', 0)">音1</button>
+                            <button class="btn btn-success" style="padding:5px 10px;" onclick="window.distributePt('${p.name}', 1)">音2</button>
+                            <button class="btn btn-success" style="padding:5px 10px;" onclick="window.distributePt('${p.name}', 2)">音3</button>
+                            <button class="btn btn-danger" style="padding:5px 10px;" onclick="window.distributePt('${p.name}', 3)">音4</button>
+                        `}</div>`;
                 }).join('');
             }
         }
 
+        /* --- ホスト：ポイント選択の重複チェック --- */
+        window.validatePoints = (idx) => {
+            const selects = [0, 1, 2, 3].map(i => document.getElementById(`pt-select-${i}`).value);
+            const isDuplicate = selects.some((val, i) => i !== idx && val === selects[idx]);
+            if (isDuplicate) {
+                alert("同じポイントは選べません！");
+                const all = ["1", "2", "3", "-2"];
+                document.getElementById(`pt-select-${idx}`).value = all.find(opt => !selects.filter((v, i) => i !== idx).includes(opt));
+            }
+            window.updatePtBadge(idx);
+        };
+
+        window.updatePtBadge = (i) => {
+            const val = document.getElementById(`pt-select-${i}`).value;
+            document.getElementById(`pt-badge-${i}`).innerText = val + "pt";
+        };
+
+        window.distributePt = async (targetName, soundIdx) => {
+            if (distributedPlayers.has(targetName)) return;
+            const pt = parseInt(document.getElementById(`pt-select-${soundIdx}`).value);
+            const soundName = window.currentSoundNames[soundIdx];
+            const snap = await getDoc(gameRef);
+            const players = snap.data().players.map(p => { if (p.name === targetName) p.score += pt; return p; });
+            await updateDoc(gameRef, { players, updatedAt: serverTimestamp(), lastAward: { target: targetName, pt: pt, soundName: soundName, id: Math.random() } });
+            distributedPlayers.add(targetName);
+        };
+
+        /* --- 音響・その他 --- */
         window.stopAllSounds = () => {
             audioElements.forEach(audio => { audio.pause(); audio.currentTime = 0; });
             audioElements = [];
@@ -348,16 +433,21 @@
             if (isSoundGenerated) return;
             const shuffled = [...soundList].sort(() => 0.5 - Math.random());
             const selected = shuffled.slice(0, 4);
+            window.currentSoundNames = selected.map(s => s.name);
             selected.forEach((sound, i) => {
                 const audio = new Audio(sound.file);
                 audio.loop = true; audio.volume = 0; audioElements.push(audio);
+                const defaultPts = ["1", "2", "3", "-2"];
                 document.getElementById('sound-mixers').innerHTML += `
                     <div class="sound-control">
                         <strong>音源${i + 1}: ${sound.name}</strong> 
-                        <select id="pt-select-${i}" onchange="window.updatePtBadge(${i})">
-                            <option value="1">1pt</option><option value="2">2pt</option><option value="3">3pt</option><option value="-2">-2pt</option>
+                        <select id="pt-select-${i}" onchange="window.validatePoints(${i})">
+                            <option value="1" ${i == 0 ? 'selected' : ''}>1pt</option>
+                            <option value="2" ${i == 1 ? 'selected' : ''}>2pt</option>
+                            <option value="3" ${i == 2 ? 'selected' : ''}>3pt</option>
+                            <option value="-2" ${i == 3 ? 'selected' : ''}>-2pt</option>
                         </select>
-                        <span id="pt-badge-${i}" class="score-badge">1pt</span><br>
+                        <span id="pt-badge-${i}" class="score-badge">${defaultPts[i]}pt</span><br>
                         <input type="range" min="0" max="1" step="0.1" value="0" oninput="window.changeVol(${i}, this.value)">
                     </div>`;
             });
@@ -365,24 +455,15 @@
             document.getElementById('playback-area').classList.remove('hidden');
         };
 
-        window.updatePtBadge = (i) => { document.getElementById(`pt-badge-${i}`).innerText = document.getElementById(`pt-select-${i}`).value + "pt"; };
         window.playAll = () => audioElements.forEach(audio => audio.play().catch(e => console.warn(e)));
         window.pauseAll = () => audioElements.forEach(audio => audio.pause());
         window.changeVol = (idx, vol) => { if (audioElements[idx]) audioElements[idx].volume = vol; };
-        window.addPt = async (name, pt) => {
-            if (distributedPlayers.has(name)) return;
-            const snap = await getDoc(gameRef);
-            const players = snap.data().players.map(p => { if (p.name === name) p.score += pt; return p; });
-            await updateDoc(gameRef, { players, updatedAt: serverTimestamp() });
-            distributedPlayers.add(name);
-            updateUI(snap.data());
-        };
         window.endTurn = async () => {
-            if (!confirm("次へ？")) return;
+            if (!confirm("交代しますか？")) return;
             const snap = await getDoc(gameRef);
             window.stopAllSounds();
             distributedPlayers.clear();
-            await updateDoc(gameRef, { hostIndex: (snap.data().hostIndex + 1) % snap.data().players.length, updatedAt: serverTimestamp() });
+            await updateDoc(gameRef, { hostIndex: (snap.data().hostIndex + 1) % snap.data().players.length, updatedAt: serverTimestamp(), lastAward: null });
         };
         window.leaveGame = async () => {
             const snap = await getDoc(gameRef);
