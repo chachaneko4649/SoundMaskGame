@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" href="data:,">
-    <title>Sound Mixer Party - Mobile Pro</title>
+    <title>Sound Mixer Party - Confetti Ver.</title>
     <style>
         body {
             font-family: sans-serif;
@@ -73,7 +73,6 @@
             align-items: center;
         }
 
-        /* スロット・チップ */
         .point-chips {
             display: flex;
             justify-content: center;
@@ -142,7 +141,7 @@
             display: none !important;
         }
 
-        /* --- 演出用 (スマホ対応) --- */
+        /* --- 演出用 --- */
         #danger-overlay,
         #success-overlay,
         #great-overlay {
@@ -165,7 +164,6 @@
             color: white;
             text-shadow: 0 4px 10px rgba(0, 0, 0, 0.8);
             width: 90%;
-            word-wrap: break-word;
         }
 
         .overlay-pt {
@@ -178,7 +176,7 @@
             font-weight: bold;
         }
 
-        /* シェイク演出（iOS用バイブ代わり） */
+        /* シェイク（ペナルティ用） */
         @keyframes shake {
 
             0%,
@@ -187,16 +185,27 @@
             }
 
             25% {
-                transform: translateX(-10px);
+                transform: translateX(-12px);
             }
 
             75% {
-                transform: translateX(10px);
+                transform: translateX(12px);
             }
         }
 
         .shake-it {
             animation: shake 0.1s infinite;
+        }
+
+        /* 紙吹雪用キャンバス */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9998;
         }
 
         /* 結果発表 */
@@ -237,35 +246,33 @@
 
 <body id="main-body">
 
+    <canvas id="confetti-canvas"></canvas>
+
     <div id="danger-overlay" style="background:rgba(255,0,0,0.8)">
         <div class="overlay-text">DANGER!</div>
         <div class="overlay-pt">-2 pt</div>
     </div>
-    <div id="success-overlay" style="background:rgba(40,167,69,0.95)">
+    <div id="success-overlay" style="background:rgba(40,167,69,0.9)">
         <div id="success-name" class="overlay-text">GOOD!</div>
-        <div id="success-pt" class="overlay-pt">+1 pt</div>
+        <div id="success-pt" class="overlay-pt">+ pt</div>
     </div>
-    <div id="great-overlay" style="background:rgba(218,165,32,0.95)">
+    <div id="great-overlay" style="background:rgba(218,165,32,0.6)">
         <div id="great-name" class="overlay-text">GREAT!!</div>
         <div id="great-pt" class="overlay-pt">+3 pt</div>
     </div>
 
     <div id="result-screen">
-        <h1 style="color: #007bff; margin-top: 20px;">🏆 最終ランキング 🏆</h1>
+        <h1 style="color: #007bff;">🏆 最終ランキング 🏆</h1>
         <div id="final-list"></div>
-        <br><br>
-        <button class="btn btn-danger" style="width: 100%; padding: 20px; font-size: 20px;"
-            onclick="resetAll()">タイトルへ戻る</button>
-        <div style="height: 100px;"></div>
+        <br>
+        <button class="btn btn-danger" style="width: 100%; padding: 20px;" onclick="resetAll()">タイトルへ戻る</button>
     </div>
 
     <div id="setup-screen" class="card">
         <h1>🔊 Sound Mixer Party</h1>
-        <p>名前を入力して開始！</p>
-        <input type="text" id="player-name" placeholder="例: たろう"
-            style="padding:15px; width:80%; font-size:18px; border-radius:10px; border:1px solid #ccc;">
+        <input type="text" id="player-name" placeholder="名前を入力" style="padding:15px; width:80%; font-size:18px;">
         <br><br>
-        <button class="btn" style="width: 80%; padding: 20px;" onclick="joinGame()">ゲームに参加する</button>
+        <button class="btn" style="width: 80%; padding: 15px;" onclick="joinGame()">ゲームに参加する</button>
     </div>
 
     <div id="game-screen" class="hidden">
@@ -274,11 +281,10 @@
                 <span id="current-role">...</span>
                 <a href="#" onclick="leaveGame()" style="color:#999;">退出</a>
             </div>
-            <h2 id="my-score" style="font-size: 2em; margin: 10px 0;">0 pt</h2>
+            <h2 id="my-score">0 pt</h2>
         </div>
 
         <div id="host-controls" class="card host-area hidden">
-            <h3>🎨 ホストパネル</h3>
             <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
             <div id="playback-area" class="hidden">
                 <div class="point-chips">
@@ -287,23 +293,20 @@
                     <div class="chip" id="btn-pt-3" onclick="selectChip(3, this)">3pt</div>
                     <div class="chip" id="btn-pt-m2" onclick="selectChip(-2, this)">-2pt</div>
                 </div>
-                <div style="margin:15px 0;">
-                    <button class="btn btn-success" style="padding:10px 30px;" onclick="playAll()">▶ 再生</button>
-                    <button class="btn btn-danger" style="padding:10px 30px;" onclick="pauseAll()">⏸ 停止</button>
+                <div style="margin:10px 0;">
+                    <button class="btn btn-success" onclick="playAll()">▶ 再生</button>
+                    <button class="btn btn-danger" onclick="pauseAll()">⏸ 停止</button>
                 </div>
                 <div id="sound-mixers"></div>
             </div>
             <hr>
-            <h4>ポイント配布</h4>
             <div id="player-scoring"></div>
-            <button class="btn btn-success" style="width:100%; margin-top:15px; padding:15px;"
-                onclick="endTurn()">交代</button>
-            <button class="btn btn-danger" style="width:100%; margin-top:15px; background:#666;"
+            <button class="btn btn-success" style="width:100%; margin-top:15px;" onclick="endTurn()">交代</button>
+            <button class="btn btn-danger" style="width:100%; margin-top:10px; background:#666;"
                 onclick="window.finishGame()">🏁 試合終了</button>
         </div>
 
         <div id="player-waiting" class="card hidden">ホストが準備中...👂</div>
-
         <div class="card">
             <div id="rankings"></div>
         </div>
@@ -314,6 +317,7 @@
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { soundList } from "./sounds.js";
 
+        // FIXME: FirebaseConfigを上書き
         const firebaseConfig = {
             apiKey: "AIzaSyBiej_LtMZeKi3aLDIgo5XjJoSeAngORw8",
             authDomain: "soundmaskgame.firebaseapp.com",
@@ -334,14 +338,45 @@
         let lastAwardId = "INITIAL_IGNORE";
         let currentSelectedPt = null;
 
-        // --- スマホでの音声再生を許可するためのダミー再生 ---
-        const enableAudio = () => {
-            const silentTag = new Audio();
-            silentTag.play().catch(() => { });
-        };
+        // --- 紙吹雪ロジック ---
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        function createConfetti() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            for (let i = 0; i < 100; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 7 + 3,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    velX: Math.random() * 2 - 1,
+                    velY: Math.random() * 3 + 2,
+                    angle: Math.random() * 360
+                });
+            }
+            requestAnimationFrame(updateConfetti);
+        }
+        function updateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, i) => {
+                p.y += p.velY;
+                p.x += p.velX;
+                p.angle += 5;
+                ctx.fillStyle = p.color;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.angle * Math.PI / 180);
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                ctx.restore();
+                if (p.y > canvas.height) particles.splice(i, 1);
+            });
+            if (particles.length > 0) requestAnimationFrame(updateConfetti);
+        }
 
         window.joinGame = async () => {
-            enableAudio(); // タップした瞬間に音声を有効化
+            const silent = new Audio(); silent.play().catch(() => { });
             const nameInput = document.getElementById('player-name').value;
             if (!nameInput) return;
             myName = nameInput;
@@ -373,16 +408,9 @@
             });
         }
 
-        window.finishGame = async () => {
-            if (confirm("最終結果を発表しますか？")) {
-                await updateDoc(gameRef, { isFinished: true, updatedAt: serverTimestamp() });
-            }
-        };
-
         function showFinalResults(players) {
             const sorted = [...players].sort((a, b) => b.score - a.score);
-            const resultScreen = document.getElementById('result-screen');
-            resultScreen.style.display = 'block';
+            document.getElementById('result-screen').style.display = 'block';
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('final-list').innerHTML = sorted.map((p, i) => `
                 <div class="final-rank ${i === 0 ? 'rank-1' : ''}">
@@ -391,6 +419,42 @@
                 </div>
             `).join('');
             window.scrollTo(0, 0);
+        }
+
+        function checkAwardEffect(data) {
+            const award = data.lastAward;
+            if (!award || award.target !== myName || award.id === lastAwardId) {
+                if (lastAwardId === "INITIAL_IGNORE" && award) lastAwardId = award.id;
+                return;
+            }
+            lastAwardId = award.id;
+            const isDanger = award.pt < 0;
+            const isGreat = award.pt === 3;
+            const id = isDanger ? 'danger-overlay' : (isGreat ? 'great-overlay' : 'success-overlay');
+            const sound = isDanger ? 'warn.mp3' : (isGreat ? 'great.mp3' : 'success.mp3');
+
+            if (!isDanger) {
+                const type = isGreat ? 'great' : 'success';
+                document.getElementById(`${type}-name`).innerText = award.soundName.toUpperCase();
+                document.getElementById(`${type}-pt`).innerText = `+${award.pt} pt`;
+            }
+
+            const overlay = document.getElementById(id);
+            overlay.style.display = 'flex';
+
+            // 演出分岐
+            if (isDanger) {
+                document.getElementById('main-body').classList.add('shake-it');
+            } else if (isGreat) {
+                createConfetti(); // 紙吹雪
+            }
+
+            new Audio(`sounds/${sound}`).play().catch(e => console.log(e));
+
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                document.getElementById('main-body').classList.remove('shake-it');
+            }, 3500);
         }
 
         window.selectChip = (pt, el) => {
@@ -441,8 +505,8 @@
                 document.getElementById('player-scoring').innerHTML = players.map(p => {
                     const isDone = distributedPlayers.has(p.name);
                     return `<div style="margin:8px 0; border-bottom:1px solid #eee; padding-bottom:8px;">
-                        <span style="font-weight:bold;">${p.name}</span><br>
-                        ${isDone ? '✅ 配布済み' : `
+                        <span>${p.name}</span><br>
+                        ${isDone ? '✅' : `
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 0)">音1</button>
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 1)">音2</button>
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 2)">音3</button>
@@ -505,49 +569,16 @@
             document.querySelectorAll('.chip').forEach(c => { c.classList.remove('used'); c.style.border = "none"; });
         };
 
-        function checkAwardEffect(data) {
-            const award = data.lastAward;
-            if (!award || award.target !== myName || award.id === lastAwardId) {
-                if (lastAwardId === "INITIAL_IGNORE" && award) lastAwardId = award.id;
-                return;
-            }
-            lastAwardId = award.id;
-            const isDanger = award.pt < 0;
-            const isGreat = award.pt === 3;
-            const id = isDanger ? 'danger-overlay' : (isGreat ? 'great-overlay' : 'success-overlay');
-            const sound = isDanger ? 'warn.mp3' : (isGreat ? 'great.mp3' : 'success.mp3');
-
-            if (!isDanger) {
-                const type = isGreat ? 'great' : 'success';
-                document.getElementById(`${type}-name`).innerText = award.soundName.toUpperCase();
-                document.getElementById(`${type}-pt`).innerText = (award.pt > 0 ? '+' : '') + award.pt + " pt";
-            }
-
-            const overlay = document.getElementById(id);
-            overlay.style.display = 'flex';
-
-            // スマホ演出：シェイク
-            document.getElementById('main-body').classList.add('shake-it');
-
-            new Audio(`sounds/${sound}`).play().catch(e => console.log(e));
-
-            if (navigator.vibrate) navigator.vibrate(isGreat ? [100, 50, 100, 50, 200] : 200);
-
-            setTimeout(() => {
-                overlay.style.display = 'none';
-                document.getElementById('main-body').classList.remove('shake-it');
-            }, 3000);
-        }
-
         window.playAll = () => audioElements.forEach(a => a.play().catch(() => { }));
         window.pauseAll = () => audioElements.forEach(a => a.pause());
+        window.finishGame = async () => { if (confirm("終了しますか？")) await updateDoc(gameRef, { isFinished: true, updatedAt: serverTimestamp() }); };
         window.endTurn = async () => {
             if (!confirm("交代しますか？")) return;
             window.stopAllSounds(); distributedPlayers.clear();
             const snap = await getDoc(gameRef);
             await updateDoc(gameRef, { hostIndex: (snap.data().hostIndex + 1) % snap.data().players.length, updatedAt: serverTimestamp(), lastAward: null });
         };
-        window.resetAll = async () => { if (confirm("データをリセットして終了しますか？")) { await deleteDoc(gameRef); location.reload(); } };
+        window.resetAll = async () => { if (confirm("リセット？")) { await deleteDoc(gameRef); location.reload(); } };
         window.leaveGame = async () => { location.reload(); };
     </script>
 </body>
