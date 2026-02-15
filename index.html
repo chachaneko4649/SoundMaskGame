@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sound Mixer Party - Slim Ver.</title>
+    <link rel="icon" href="data:,">
+    <title>Sound Mixer Party - Bug Fixed Ver.</title>
     <style>
         body {
             font-family: sans-serif;
@@ -46,14 +47,19 @@
         .btn-vol {
             background: #6c757d;
             padding: 5px 10px;
-            font-size: 12px;
+            font-size: 11px;
             margin: 2px;
             flex: 1;
+            border-radius: 5px;
+            border: none;
+            color: white;
+            cursor: pointer;
         }
 
         .btn-vol.active {
             background: #007bff;
-            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .host-area {
@@ -69,12 +75,15 @@
             align-items: center;
         }
 
-        /* ドラッグ＆ドロップ用 */
         .point-chips {
             display: flex;
             justify-content: center;
             gap: 8px;
             margin: 10px 0;
+            min-height: 50px;
+            padding: 5px;
+            background: #eee;
+            border-radius: 10px;
         }
 
         .chip {
@@ -87,15 +96,19 @@
             font-weight: bold;
             cursor: grab;
             font-size: 14px;
+            display: inline-block;
+            box-shadow: 0 3px 0 #0056b3;
         }
 
         .chip[data-pt="-2"] {
             background: #ff4757;
+            box-shadow: 0 3px 0 #c0392b;
         }
 
         .chip[data-pt="3"] {
             background: #ffca28;
             color: #333;
+            box-shadow: 0 3px 0 #f57f17;
         }
 
         .sound-control {
@@ -109,25 +122,27 @@
 
         .vol-group {
             display: flex;
-            gap: 5px;
+            gap: 3px;
             margin-top: 5px;
         }
 
         .drop-zone {
-            height: 50px;
+            height: 55px;
             border: 2px dashed #aaa;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 5px 0;
+            margin: 8px 0;
             background: #fff;
-            font-size: 12px;
+            font-size: 11px;
             color: #999;
         }
 
         .drop-zone .chip {
-            transform: scale(0.8);
+            transform: scale(0.9);
+            box-shadow: none;
+            cursor: default;
         }
 
         .hidden {
@@ -188,15 +203,16 @@
     </div>
 
     <div id="setup-screen" class="card">
-        <h2>🔊 Sound Mixer</h2>
-        <input type="text" id="player-name" placeholder="名前" style="padding:10px; width:70%;">
-        <button class="btn" style="margin-top:10px;" onclick="joinGame()">参加</button>
+        <h2>🔊 Sound Mixer Party</h2>
+        <input type="text" id="player-name" placeholder="あなたの名前" style="padding:10px; width:70%; font-size:16px;">
+        <br><br>
+        <button class="btn" onclick="joinGame()">ゲームに参加</button>
     </div>
 
     <div id="game-screen" class="hidden">
         <div class="card" style="padding:10px;">
             <div style="display:flex; justify-content:space-between; font-size:12px;">
-                <span id="current-role">確認中</span>
+                <span id="current-role">接続中...</span>
                 <a href="#" onclick="leaveGame()" style="color:#999;">退出</a>
             </div>
             <h2 id="my-score" style="margin:5px 0;">0 pt</h2>
@@ -206,6 +222,7 @@
             <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
 
             <div id="playback-area" class="hidden">
+                <p style="font-size:12px; margin:10px 0 5px;">ポイントを枠にドラッグ：</p>
                 <div class="point-chips" id="point-pool">
                     <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-1" data-pt="1">1pt</div>
                     <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-2" data-pt="2">2pt</div>
@@ -213,7 +230,7 @@
                     <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-m2" data-pt="-2">-2pt</div>
                 </div>
                 <div style="margin:10px 0;">
-                    <button class="btn btn-success" onclick="playAll()">▶ 再生</button>
+                    <button class="btn btn-success" onclick="playAll()">▶ 再生開始</button>
                     <button class="btn btn-danger" onclick="pauseAll()">⏸ 停止</button>
                 </div>
                 <div id="sound-mixers"></div>
@@ -221,15 +238,17 @@
 
             <hr>
             <h4>ポイント配布</h4>
-            <div id="player-scoring" style="font-size:14px;"></div>
-            <button class="btn btn-success" style="width:100%; margin-top:10px;" onclick="endTurn()">交代</button>
+            <div id="player-scoring" style="font-size:13px;"></div>
+            <button class="btn btn-success" style="width:100%; margin-top:15px; padding:15px;"
+                onclick="endTurn()">ターンを終了して交代</button>
         </div>
 
-        <div id="player-waiting" class="card hidden">耳を澄ませて待ちましょう...</div>
+        <div id="player-waiting" class="card hidden">ホストが音を準備しています...👂</div>
 
         <div class="card">
             <div id="rankings"></div>
-            <button class="btn btn-danger" style="font-size:10px; margin-top:10px;" onclick="resetAll()">リセット</button>
+            <button class="btn btn-danger" style="font-size:10px; margin-top:20px; opacity:0.5;"
+                onclick="resetAll()">部屋をリセット</button>
         </div>
     </div>
 
@@ -285,7 +304,7 @@
             });
         }
 
-        /* --- ドラッグ処理 --- */
+        /* --- ドラッグ＆ドロップ (エラー対策済み) --- */
         window.drag = (ev) => { ev.dataTransfer.setData("text", ev.target.id); };
         window.allowDrop = (ev) => { ev.preventDefault(); };
         window.drop = (ev) => {
@@ -293,8 +312,11 @@
             const data = ev.dataTransfer.getData("text");
             const chip = document.getElementById(data);
             const dropzone = ev.target.closest('.drop-zone');
-            if (!dropzone) return;
-            if (dropzone.hasChildNodes()) document.getElementById('point-pool').appendChild(dropzone.firstChild);
+            if (!dropzone || !chip) return;
+
+            if (dropzone.hasChildNodes()) {
+                document.getElementById('point-pool').appendChild(dropzone.firstChild);
+            }
             dropzone.appendChild(chip);
             soundPoints[dropzone.dataset.idx] = parseInt(chip.dataset.pt);
         };
@@ -304,7 +326,7 @@
             const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
 
-            document.getElementById('current-role').innerText = isHost ? "役割: ホスト 👑" : `ホスト: ${host.name}`;
+            document.getElementById('current-role').innerText = isHost ? "役割: あなたがホスト 👑" : `ホスト: ${host.name}`;
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
@@ -319,7 +341,7 @@
                 document.getElementById('player-scoring').innerHTML = players.map(p => {
                     const isDone = distributedPlayers.has(p.name);
                     return `<div style="margin:5px 0; border-bottom:1px solid #eee; padding:5px 0;">
-                        <span style="display:inline-block; width:60px;">${p.name}</span>
+                        <span style="display:inline-block; width:60px; font-weight:bold;">${p.name}</span>
                         ${isDone ? '✅' : `
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 0)">音1</button>
                             <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 1)">音2</button>
@@ -333,7 +355,7 @@
 
         window.distributePt = async (target, sIdx) => {
             const pt = soundPoints[sIdx];
-            if (pt === 0) return alert("ポイントをセットしてください");
+            if (pt === 0) return alert("ポイントをセットしてください！");
             await window.distributeManual(target, pt, window.currentSoundNames[sIdx]);
         };
 
@@ -376,13 +398,19 @@
             document.getElementById('playback-area').classList.remove('hidden');
         };
 
+        /* --- エラー修正済みのリセット処理 --- */
         window.stopAllSounds = () => {
             audioElements.forEach(a => { a.pause(); a.currentTime = 0; });
             audioElements = [];
             document.getElementById('sound-mixers').innerHTML = "";
             document.getElementById('playback-area').classList.add('hidden');
+
+            // チップを元の場所に戻す (安全な方法に修正)
             const pool = document.getElementById('point-pool');
-            [1, 2, 3, 'm2'].forEach(id => pool.appendChild(document.getElementById('chip-' + id)));
+            ['chip-1', 'chip-2', 'chip-3', 'chip-m2'].forEach(id => {
+                const chip = document.getElementById(id);
+                if (chip) pool.appendChild(chip);
+            });
             soundPoints = [0, 0, 0, 0];
         };
 
@@ -399,14 +427,23 @@
             setTimeout(() => { overlay.style.display = 'none'; }, 3000);
         }
 
-        window.playAll = () => audioElements.forEach(a => a.play());
+        window.playAll = () => audioElements.forEach(a => a.play().catch(e => console.warn(e)));
         window.pauseAll = () => audioElements.forEach(a => a.pause());
+
         window.endTurn = async () => {
-            window.stopAllSounds(); distributedPlayers.clear();
+            if (!confirm("交代しますか？")) return;
+            window.stopAllSounds();
+            distributedPlayers.clear();
             const snap = await getDoc(gameRef);
             await updateDoc(gameRef, { hostIndex: (snap.data().hostIndex + 1) % snap.data().players.length, updatedAt: serverTimestamp(), lastAward: null });
         };
-        window.resetAll = async () => { if (confirm("リセット？")) await deleteDoc(gameRef); location.reload(); };
+
+        window.resetAll = async () => {
+            if (confirm("データを全てリセットして解散しますか？")) {
+                await deleteDoc(gameRef);
+                location.reload();
+            }
+        };
         window.leaveGame = async () => { location.reload(); };
     </script>
 </body>
