@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sound Mixer Party - Drag & Drop Ver.</title>
+    <title>Sound Mixer Party - Slim Ver.</title>
     <style>
         body {
             font-family: sans-serif;
             background: #f0f2f5;
             text-align: center;
-            padding: 20px;
+            padding: 10px;
             color: #333;
             overflow-x: hidden;
             touch-action: manipulation;
@@ -19,20 +19,20 @@
         .card {
             background: white;
             border-radius: 15px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .btn {
             background: #007bff;
             color: white;
             border: none;
-            padding: 12px 20px;
+            padding: 10px 15px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 14px;
         }
 
         .btn-success {
@@ -43,9 +43,17 @@
             background: #ff4757;
         }
 
-        .btn-secondary {
+        .btn-vol {
             background: #6c757d;
-            font-size: 14px;
+            padding: 5px 10px;
+            font-size: 12px;
+            margin: 2px;
+            flex: 1;
+        }
+
+        .btn-vol.active {
+            background: #007bff;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
         }
 
         .host-area {
@@ -56,77 +64,76 @@
         .player-item {
             display: flex;
             justify-content: space-between;
-            padding: 12px;
+            padding: 10px;
             border-bottom: 1px solid #eee;
             align-items: center;
         }
 
-        /* ドラッグ＆ドロップ用スタイル */
+        /* ドラッグ＆ドロップ用 */
         .point-chips {
             display: flex;
             justify-content: center;
-            gap: 10px;
-            margin: 15px 0;
+            gap: 8px;
+            margin: 10px 0;
         }
 
         .chip {
-            width: 50px;
-            height: 50px;
-            line-height: 50px;
+            width: 45px;
+            height: 45px;
+            line-height: 45px;
             border-radius: 50%;
             background: #007bff;
             color: white;
             font-weight: bold;
             cursor: grab;
-            box-shadow: 0 4px 0 #0056b3;
+            font-size: 14px;
         }
 
         .chip[data-pt="-2"] {
             background: #ff4757;
-            box-shadow: 0 4px 0 #c0392b;
         }
 
         .chip[data-pt="3"] {
             background: #ffca28;
             color: #333;
-            box-shadow: 0 4px 0 #f57f17;
         }
 
         .sound-control {
-            margin: 15px 0;
-            padding: 15px;
+            margin: 10px 0;
+            padding: 10px;
             background: #f8f9fa;
             border-radius: 10px;
             text-align: left;
-            border: 2px dashed #ccc;
+            border: 1px solid #ddd;
+        }
+
+        .vol-group {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
         }
 
         .drop-zone {
-            height: 60px;
+            height: 50px;
             border: 2px dashed #aaa;
-            border-radius: 10px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 10px;
+            margin: 5px 0;
             background: #fff;
+            font-size: 12px;
+            color: #999;
         }
 
-        .drop-zone.active {
-            background: #e3f2fd;
-            border-color: #2196f3;
-        }
-
-        input[type=range] {
-            width: 100%;
-            margin-top: 10px;
+        .drop-zone .chip {
+            transform: scale(0.8);
         }
 
         .hidden {
             display: none;
         }
 
-        /* 演出用 */
         #danger-overlay,
         #success-overlay,
         #great-overlay {
@@ -141,37 +148,17 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 20px;
-            box-sizing: border-box;
         }
 
         #danger-overlay {
-            animation: flash-red 0.25s infinite;
+            animation: flash 0.25s infinite;
         }
 
-        #success-overlay {
-            background-color: rgba(40, 167, 69, 0.9);
-            color: white;
-        }
-
-        #great-overlay {
-            background: linear-gradient(135deg, #ffd700, #ff8c00, #ffd700);
-            background-size: 200% 200%;
-            animation: shine 2s infinite linear;
-            color: white;
-        }
-
-        .overlay-text {
-            font-size: 15vw;
-            font-weight: bold;
-            text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-        }
-
-        @keyframes flash-red {
+        @keyframes flash {
 
             0%,
             100% {
-                background-color: rgba(255, 0, 0, 0.8);
+                background-color: rgba(255, 0, 0, 0.7);
             }
 
             50% {
@@ -179,14 +166,11 @@
             }
         }
 
-        @keyframes shine {
-            0% {
-                background-position: -200%;
-            }
-
-            100% {
-                background-position: 200%;
-            }
+        .overlay-text {
+            font-size: 12vw;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 10px black;
         }
     </style>
 </head>
@@ -196,64 +180,56 @@
     <div id="danger-overlay">
         <div class="overlay-text">DANGER!</div>
     </div>
-    <div id="success-overlay">
+    <div id="success-overlay" style="background:rgba(40,167,69,0.9)">
         <div id="success-name" class="overlay-text">GOOD!</div>
     </div>
-    <div id="great-overlay">
+    <div id="great-overlay" style="background:goldenrod">
         <div id="great-name" class="overlay-text">GREAT!!</div>
     </div>
 
     <div id="setup-screen" class="card">
-        <h1>🔊 Sound Mixer Party</h1>
-        <input type="text" id="player-name" placeholder="名前を入力"
-            style="padding:12px; width:80%; font-size: 18px; border-radius: 5px; border: 1px solid #ccc;">
-        <br><br>
-        <button class="btn" onclick="joinGame()">参加する</button>
+        <h2>🔊 Sound Mixer</h2>
+        <input type="text" id="player-name" placeholder="名前" style="padding:10px; width:70%;">
+        <button class="btn" style="margin-top:10px;" onclick="joinGame()">参加</button>
     </div>
 
     <div id="game-screen" class="hidden">
-        <div class="card">
-            <h3 id="current-role" style="margin:0; color: #007bff;">確認中...</h3>
-            <h2 id="my-score">0 pt</h2>
+        <div class="card" style="padding:10px;">
+            <div style="display:flex; justify-content:space-between; font-size:12px;">
+                <span id="current-role">確認中</span>
+                <a href="#" onclick="leaveGame()" style="color:#999;">退出</a>
+            </div>
+            <h2 id="my-score" style="margin:5px 0;">0 pt</h2>
         </div>
 
         <div id="host-controls" class="card host-area hidden">
-            <h3>🎨 ホストパネル</h3>
             <button id="gen-btn" class="btn" onclick="generateSounds()">1. 音源をランダム選出</button>
 
             <div id="playback-area" class="hidden">
-                <p>チップを枠内にドラッグしてポイント設定：</p>
                 <div class="point-chips" id="point-pool">
                     <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-1" data-pt="1">1pt</div>
                     <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-2" data-pt="2">2pt</div>
                     <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-3" data-pt="3">3pt</div>
                     <div class="chip" draggable="true" ondragstart="drag(event)" id="chip-m2" data-pt="-2">-2pt</div>
                 </div>
-
-                <div id="playback-controls" style="margin-top:20px;">
-                    <button class="btn btn-success" onclick="playAll()">▶ 再生開始</button>
+                <div style="margin:10px 0;">
+                    <button class="btn btn-success" onclick="playAll()">▶ 再生</button>
                     <button class="btn btn-danger" onclick="pauseAll()">⏸ 停止</button>
                 </div>
                 <div id="sound-mixers"></div>
             </div>
 
             <hr>
-            <h4>不正解者への配布（全員外れた時用）</h4>
-            <div id="player-scoring"></div>
-            <button class="btn btn-success" style="width:100%; padding:18px; margin-top:20px;"
-                onclick="endTurn()">交代する</button>
+            <h4>ポイント配布</h4>
+            <div id="player-scoring" style="font-size:14px;"></div>
+            <button class="btn btn-success" style="width:100%; margin-top:10px;" onclick="endTurn()">交代</button>
         </div>
 
-        <div id="player-waiting" class="card hidden">
-            <div style="font-size: 4em; margin: 20px 0;">👂</div>
-            <p>ホストが準備中...</p>
-        </div>
+        <div id="player-waiting" class="card hidden">耳を澄ませて待ちましょう...</div>
 
         <div class="card">
-            <h3>ランキング</h3>
             <div id="rankings"></div>
-            <hr>
-            <button class="btn btn-danger" style="font-size: 0.7em;" onclick="resetAll()">リセット</button>
+            <button class="btn btn-danger" style="font-size:10px; margin-top:10px;" onclick="resetAll()">リセット</button>
         </div>
     </div>
 
@@ -277,10 +253,9 @@
 
         let myName = "";
         let audioElements = [];
-        let isSoundGenerated = false;
         let distributedPlayers = new Set();
+        let soundPoints = [0, 0, 0, 0];
         let lastAwardId = "";
-        let soundPoints = [0, 0, 0, 0]; // 各音源にセットされたpt
 
         window.joinGame = async () => {
             const nameInput = document.getElementById('player-name').value;
@@ -310,7 +285,7 @@
             });
         }
 
-        // --- ドラッグ＆ドロップ関数 ---
+        /* --- ドラッグ処理 --- */
         window.drag = (ev) => { ev.dataTransfer.setData("text", ev.target.id); };
         window.allowDrop = (ev) => { ev.preventDefault(); };
         window.drop = (ev) => {
@@ -319,15 +294,9 @@
             const chip = document.getElementById(data);
             const dropzone = ev.target.closest('.drop-zone');
             if (!dropzone) return;
-
-            // すでに何か入っていたら元に戻す
-            if (dropzone.hasChildNodes()) {
-                document.getElementById('point-pool').appendChild(dropzone.firstChild);
-            }
-
+            if (dropzone.hasChildNodes()) document.getElementById('point-pool').appendChild(dropzone.firstChild);
             dropzone.appendChild(chip);
-            const idx = dropzone.dataset.idx;
-            soundPoints[idx] = parseInt(chip.dataset.pt);
+            soundPoints[dropzone.dataset.idx] = parseInt(chip.dataset.pt);
         };
 
         function updateUI(data) {
@@ -335,82 +304,86 @@
             const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
 
-            document.getElementById('current-role').innerText = isHost ? "役割: あなたがホスト 👑" : `ホスト: ${host.name}`;
+            document.getElementById('current-role').innerText = isHost ? "役割: ホスト 👑" : `ホスト: ${host.name}`;
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
 
             if (!isHost) stopAllSounds();
             document.getElementById('my-score').innerText = (players.find(p => p.name === myName)?.score || 0) + " pt";
 
-            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-            document.getElementById('rankings').innerHTML = sortedPlayers.map(p => `
+            document.getElementById('rankings').innerHTML = [...players].sort((a, b) => b.score - a.score).map(p => `
                 <div class="player-item"><span>${p.name}</span><b>${p.score} pt</b></div>
             `).join('');
 
             if (isHost) {
                 document.getElementById('player-scoring').innerHTML = players.map(p => {
                     const isDone = distributedPlayers.has(p.name);
-                    return `<div style="margin:5px 0;">${p.name}: ${isDone ? '✅' : `
-                        <button class="btn btn-success" style="padding:5px 20px;" onclick="window.distributePt('${p.name}', null, 2)">+2pt 配布</button>
-                    `}</div>`;
+                    return `<div style="margin:5px 0; border-bottom:1px solid #eee; padding:5px 0;">
+                        <span style="display:inline-block; width:60px;">${p.name}</span>
+                        ${isDone ? '✅' : `
+                            <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 0)">音1</button>
+                            <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 1)">音2</button>
+                            <button class="btn btn-vol" onclick="window.distributePt('${p.name}', 2)">音3</button>
+                            <button class="btn btn-vol btn-danger" onclick="window.distributePt('${p.name}', 3)">音4</button>
+                            <button class="btn btn-vol btn-success" onclick="window.distributeManual('${p.name}', 2)">+2</button>
+                        `}</div>`;
                 }).join('');
             }
         }
 
-        /* --- ポイント配布 --- */
-        window.distributePt = async (targetName, soundIdx, manualPt = null) => {
-            if (distributedPlayers.has(targetName)) return;
-
-            let pt = manualPt;
-            let sName = "SPECIAL";
-
-            if (soundIdx !== null) {
-                pt = soundPoints[soundIdx];
-                sName = window.currentSoundNames[soundIdx];
-                if (pt === 0) return alert("ポイントを設定してください！");
-            }
-
-            const snap = await getDoc(gameRef);
-            const players = snap.data().players.map(p => { if (p.name === targetName) p.score += pt; return p; });
-            await updateDoc(gameRef, { players, updatedAt: serverTimestamp(), lastAward: { target: targetName, pt: pt, soundName: sName, id: Math.random() } });
-            distributedPlayers.add(targetName);
+        window.distributePt = async (target, sIdx) => {
+            const pt = soundPoints[sIdx];
+            if (pt === 0) return alert("ポイントをセットしてください");
+            await window.distributeManual(target, pt, window.currentSoundNames[sIdx]);
         };
 
-        /* --- 演出・音響 --- */
-        window.stopAllSounds = () => {
-            audioElements.forEach(audio => { audio.pause(); audio.currentTime = 0; });
-            audioElements = [];
-            document.getElementById('sound-mixers').innerHTML = "";
-            document.getElementById('playback-area').classList.add('hidden');
-            soundPoints = [0, 0, 0, 0];
-            const pool = document.getElementById('point-pool');
-            [1, 2, 3, 'm2'].forEach(id => pool.appendChild(document.getElementById('chip-' + id)));
-            isSoundGenerated = false;
+        window.distributeManual = async (target, pt, sName = "SPECIAL") => {
+            if (distributedPlayers.has(target)) return;
+            const snap = await getDoc(gameRef);
+            const players = snap.data().players.map(p => { if (p.name === target) p.score += pt; return p; });
+            await updateDoc(gameRef, { players, updatedAt: serverTimestamp(), lastAward: { target, pt, soundName: sName, id: Math.random() } });
+            distributedPlayers.add(target);
+        };
+
+        /* --- 音量・音響 --- */
+        window.changeVolSimple = (idx, level, btn) => {
+            const volumes = [0, 0.4, 1.0];
+            if (audioElements[idx]) audioElements[idx].volume = volumes[level];
+            const group = btn.parentElement;
+            Array.from(group.children).forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
         };
 
         window.generateSounds = () => {
             const shuffled = [...soundList].sort(() => 0.5 - Math.random());
             const selected = shuffled.slice(0, 4);
             window.currentSoundNames = selected.map(s => s.name);
-
-            selected.forEach((sound, i) => {
-                const audio = new Audio(sound.file);
-                audio.loop = true; audio.volume = 0; audioElements.push(audio);
-                document.getElementById('sound-mixers').innerHTML += `
-                    <div class="sound-control">
-                        <strong>音源${i + 1}: ${sound.name}</strong> 
-                        <div class="drop-zone" data-idx="${i}" ondrop="drop(event)" ondragover="allowDrop(event)">ここにチップをドラッグ</div>
-                        <input type="range" min="0" max="1" step="0.1" value="0" oninput="window.changeVol(${i}, this.value)">
-                        <button class="btn btn-secondary" style="width:100%; margin-top:5px;" onclick="window.showDistributeUI(${i})">正解者に配布</button>
-                    </div>`;
-            });
-            isSoundGenerated = true;
+            document.getElementById('sound-mixers').innerHTML = selected.map((sound, i) => {
+                const audio = new Audio(sound.file); audio.loop = true; audio.volume = 0; audioElements.push(audio);
+                return `
+                <div class="sound-control">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px;">音${i + 1}: <b>${sound.name}</b></span>
+                        <div class="vol-group">
+                            <button class="btn btn-vol active" onclick="window.changeVolSimple(${i}, 0, this)">OFF</button>
+                            <button class="btn btn-vol" onclick="window.changeVolSimple(${i}, 1, this)">中</button>
+                            <button class="btn btn-vol" onclick="window.changeVolSimple(${i}, 2, this)">大</button>
+                        </div>
+                    </div>
+                    <div class="drop-zone" data-idx="${i}" ondrop="drop(event)" ondragover="allowDrop(event)">ptをドラッグ</div>
+                </div>`;
+            }).join('');
             document.getElementById('playback-area').classList.remove('hidden');
         };
 
-        window.showDistributeUI = (sIdx) => {
-            const name = prompt("誰が正解しましたか？（名前を正確に）");
-            if (name) window.distributePt(name, sIdx);
+        window.stopAllSounds = () => {
+            audioElements.forEach(a => { a.pause(); a.currentTime = 0; });
+            audioElements = [];
+            document.getElementById('sound-mixers').innerHTML = "";
+            document.getElementById('playback-area').classList.add('hidden');
+            const pool = document.getElementById('point-pool');
+            [1, 2, 3, 'm2'].forEach(id => pool.appendChild(document.getElementById('chip-' + id)));
+            soundPoints = [0, 0, 0, 0];
         };
 
         function checkAwardEffect(data) {
@@ -419,24 +392,18 @@
             lastAwardId = award.id;
             const id = award.pt < 0 ? 'danger-overlay' : (award.pt === 3 ? 'great-overlay' : 'success-overlay');
             const sound = award.pt < 0 ? 'warn.mp3' : (award.pt === 3 ? 'great.mp3' : 'success.mp3');
-            document.getElementById(id.replace('-overlay', '-name')).innerText = award.soundName.toUpperCase();
-            triggerOverlay(id, sound);
-        }
-
-        function triggerOverlay(id, soundFile) {
+            if (id !== 'danger-overlay') document.getElementById(id.replace('-overlay', '-name')).innerText = award.soundName;
             const overlay = document.getElementById(id);
             overlay.style.display = 'flex';
-            new Audio(`sounds/${soundFile}`).play().catch(e => console.log(e));
+            new Audio(`sounds/${sound}`).play().catch(e => console.log(e));
             setTimeout(() => { overlay.style.display = 'none'; }, 3000);
         }
 
-        window.changeVol = (idx, vol) => { if (audioElements[idx]) audioElements[idx].volume = vol; };
-        window.playAll = () => audioElements.forEach(audio => audio.play());
-        window.pauseAll = () => audioElements.forEach(audio => audio.pause());
+        window.playAll = () => audioElements.forEach(a => a.play());
+        window.pauseAll = () => audioElements.forEach(a => a.pause());
         window.endTurn = async () => {
+            window.stopAllSounds(); distributedPlayers.clear();
             const snap = await getDoc(gameRef);
-            window.stopAllSounds();
-            distributedPlayers.clear();
             await updateDoc(gameRef, { hostIndex: (snap.data().hostIndex + 1) % snap.data().players.length, updatedAt: serverTimestamp(), lastAward: null });
         };
         window.resetAll = async () => { if (confirm("リセット？")) await deleteDoc(gameRef); location.reload(); };
