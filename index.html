@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" href="data:,">
-    <title>Sound Mixer Party - Confetti Ver.</title>
+    <title>Sound Mixer Party - Grand Finale</title>
     <style>
         body {
             font-family: sans-serif;
@@ -33,7 +33,7 @@
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 14px;
         }
 
         .btn-success {
@@ -176,7 +176,6 @@
             font-weight: bold;
         }
 
-        /* シェイク（ペナルティ用） */
         @keyframes shake {
 
             0%,
@@ -197,7 +196,7 @@
             animation: shake 0.1s infinite;
         }
 
-        /* 紙吹雪用キャンバス */
+        /* 紙吹雪・クラッカー用キャンバス */
         #confetti-canvas {
             position: fixed;
             top: 0;
@@ -208,14 +207,14 @@
             z-index: 9998;
         }
 
-        /* 結果発表 */
+        /* --- 結果発表画面 --- */
         #result-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: #f0f2f5;
+            background: linear-gradient(180deg, #1a237e, #0d47a1);
             z-index: 8000;
             overflow-y: auto;
             padding: 20px;
@@ -230,16 +229,18 @@
             border-radius: 10px;
             display: flex;
             justify-content: space-between;
-            background: white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
             align-items: center;
         }
 
         .rank-1 {
-            background: linear-gradient(135deg, #fff9c4, #fffde7);
-            border: 2px solid #fbc02d;
+            background: linear-gradient(135deg, #fff9c4, #ffd700);
+            border: 3px solid #fbc02d;
             font-weight: bold;
-            font-size: 1.5em;
+            font-size: 1.6em;
+            transform: scale(1.05);
+            margin-bottom: 30px;
         }
     </style>
 </head>
@@ -262,15 +263,17 @@
     </div>
 
     <div id="result-screen">
-        <h1 style="color: #007bff;">🏆 最終ランキング 🏆</h1>
+        <h1 style="color: #fff; text-shadow: 0 0 10px #ffd700; margin-bottom: 30px;">🌟 FINAL RANKING 🌟</h1>
         <div id="final-list"></div>
         <br>
-        <button class="btn btn-danger" style="width: 100%; padding: 20px;" onclick="resetAll()">タイトルへ戻る</button>
+        <button class="btn btn-danger" style="width: 100%; padding: 20px; font-size: 1.2em;"
+            onclick="resetAll()">タイトルへ戻る</button>
+        <div style="height: 50px;"></div>
     </div>
 
     <div id="setup-screen" class="card">
         <h1>🔊 Sound Mixer Party</h1>
-        <input type="text" id="player-name" placeholder="名前を入力" style="padding:15px; width:80%; font-size:18px;">
+        <input type="text" id="player-name" placeholder="あなたの名前" style="padding:15px; width:80%; font-size:18px;">
         <br><br>
         <button class="btn" style="width: 80%; padding: 15px;" onclick="joinGame()">ゲームに参加する</button>
     </div>
@@ -303,7 +306,7 @@
             <div id="player-scoring"></div>
             <button class="btn btn-success" style="width:100%; margin-top:15px;" onclick="endTurn()">交代</button>
             <button class="btn btn-danger" style="width:100%; margin-top:10px; background:#666;"
-                onclick="window.finishGame()">🏁 試合終了</button>
+                onclick="window.finishGame()">🏁 試合終了・結果発表</button>
         </div>
 
         <div id="player-waiting" class="card hidden">ホストが準備中...👂</div>
@@ -338,45 +341,59 @@
         let lastAwardId = "INITIAL_IGNORE";
         let currentSelectedPt = null;
 
-        // --- 紙吹雪ロジック ---
+        // --- 紙吹雪・クラッカー ---
         const canvas = document.getElementById('confetti-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
-        function createConfetti() {
+        let animationActive = false;
+
+        function burstConfetti(type = 'rain') {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            for (let i = 0; i < 100; i++) {
+
+            const count = type === 'burst' ? 200 : 80;
+            for (let i = 0; i < count; i++) {
                 particles.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height - canvas.height,
-                    size: Math.random() * 7 + 3,
+                    x: type === 'burst' ? (i % 2 === 0 ? 0 : canvas.width) : Math.random() * canvas.width,
+                    y: type === 'burst' ? canvas.height : -20,
+                    size: Math.random() * 8 + 4,
                     color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-                    velX: Math.random() * 2 - 1,
-                    velY: Math.random() * 3 + 2,
+                    velX: type === 'burst' ? (i % 2 === 0 ? Math.random() * 12 : -Math.random() * 12) : Math.random() * 4 - 2,
+                    velY: type === 'burst' ? -Math.random() * 18 - 10 : Math.random() * 3 + 2,
+                    gravity: 0.25,
                     angle: Math.random() * 360
                 });
             }
-            requestAnimationFrame(updateConfetti);
+            if (!animationActive) {
+                animationActive = true;
+                requestAnimationFrame(updateConfetti);
+            }
         }
+
         function updateConfetti() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             particles.forEach((p, i) => {
+                p.velY += p.gravity || 0;
                 p.y += p.velY;
                 p.x += p.velX;
-                p.angle += 5;
+                p.angle += 10;
                 ctx.fillStyle = p.color;
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 ctx.rotate(p.angle * Math.PI / 180);
                 ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
                 ctx.restore();
-                if (p.y > canvas.height) particles.splice(i, 1);
+                if (p.y > canvas.height + 20) particles.splice(i, 1);
             });
-            if (particles.length > 0) requestAnimationFrame(updateConfetti);
+            if (particles.length > 0) {
+                requestAnimationFrame(updateConfetti);
+            } else {
+                animationActive = false;
+            }
         }
 
         window.joinGame = async () => {
-            const silent = new Audio(); silent.play().catch(() => { });
+            new Audio().play().catch(() => { });
             const nameInput = document.getElementById('player-name').value;
             if (!nameInput) return;
             myName = nameInput;
@@ -409,16 +426,30 @@
         }
 
         function showFinalResults(players) {
+            const resultScreen = document.getElementById('result-screen');
+            if (resultScreen.style.display !== 'block') {
+                resultScreen.style.display = 'block';
+                document.getElementById('game-screen').classList.add('hidden');
+
+                // 🏁 フィナーレ：funfun.mp3 の再生
+                new Audio('sounds/funfun.mp3').play().catch(() => { });
+
+                // 左右からのクラッカー！
+                burstConfetti('burst');
+
+                // 継続的な紙吹雪
+                setInterval(() => {
+                    if (particles.length < 40) burstConfetti('rain');
+                }, 1500);
+            }
+
             const sorted = [...players].sort((a, b) => b.score - a.score);
-            document.getElementById('result-screen').style.display = 'block';
-            document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('final-list').innerHTML = sorted.map((p, i) => `
                 <div class="final-rank ${i === 0 ? 'rank-1' : ''}">
-                    <span>${i + 1}位: ${p.name}</span>
+                    <span>${i === 0 ? '👑' : (i + 1 + '位:')} ${p.name} ${i === 0 ? '<br><small>WINNER!</small>' : ''}</span>
                     <b>${p.score} pt</b>
                 </div>
             `).join('');
-            window.scrollTo(0, 0);
         }
 
         function checkAwardEffect(data) {
@@ -441,16 +472,12 @@
 
             const overlay = document.getElementById(id);
             overlay.style.display = 'flex';
-
-            // 演出分岐
             if (isDanger) {
                 document.getElementById('main-body').classList.add('shake-it');
             } else if (isGreat) {
-                createConfetti(); // 紙吹雪
+                burstConfetti('rain');
             }
-
             new Audio(`sounds/${sound}`).play().catch(e => console.log(e));
-
             setTimeout(() => {
                 overlay.style.display = 'none';
                 document.getElementById('main-body').classList.remove('shake-it');
@@ -493,7 +520,7 @@
             const players = data.players || [];
             const host = players[data.hostIndex % players.length];
             const isHost = (host && host.name === myName);
-            document.getElementById('current-role').innerText = isHost ? "役割: ホスト 👑" : `ホスト: ${host.name}`;
+            document.getElementById('current-role').innerText = isHost ? "役割: あなたがホスト 👑" : `ホスト: ${host.name}`;
             document.getElementById('host-controls').classList.toggle('hidden', !isHost);
             document.getElementById('player-waiting').classList.toggle('hidden', isHost);
             if (!isHost) stopAllSounds();
@@ -571,7 +598,7 @@
 
         window.playAll = () => audioElements.forEach(a => a.play().catch(() => { }));
         window.pauseAll = () => audioElements.forEach(a => a.pause());
-        window.finishGame = async () => { if (confirm("終了しますか？")) await updateDoc(gameRef, { isFinished: true, updatedAt: serverTimestamp() }); };
+        window.finishGame = async () => { if (confirm("試合を終了しますか？")) await updateDoc(gameRef, { isFinished: true, updatedAt: serverTimestamp() }); };
         window.endTurn = async () => {
             if (!confirm("交代しますか？")) return;
             window.stopAllSounds(); distributedPlayers.clear();
